@@ -42,6 +42,11 @@ pub struct HttpSettings {
     pub cors_origins: Vec<String>,
     /// gzip responses when the client accepts it.
     pub compression: bool,
+    /// HTTPS for the web UI and API.
+    pub tls: Option<TlsSource>,
+    pub hide_delete_all_button: bool,
+    /// Remote stylesheets and fonts are not loaded in message previews.
+    pub block_remote_css_and_fonts: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -165,6 +170,9 @@ impl Default for Settings {
                 send_auth_accept_any: false,
                 cors_origins: Vec::new(),
                 compression: true,
+                tls: None,
+                hide_delete_all_button: false,
+                block_remote_css_and_fonts: false,
             },
             smtp: SmtpSettings {
                 listen: ListenAddr::loopback(1025),

@@ -101,10 +101,6 @@ fn empty_env_values_are_ignored() {
 fn security_relevant_planned_options_refuse_to_start() {
     for src in [
         Sources {
-            cli: cli(&[("ui-tls-cert", Some("/tmp/x"))]),
-            env: vec![],
-        },
-        Sources {
             cli: cli(&[("pop3-auth-file", Some("/tmp/x"))]),
             env: vec![],
         },
@@ -604,4 +600,24 @@ fn chaos_options() {
     })
     .expect_err("invalid code");
     assert!(err.to_string().contains("between 400 and 599"), "{err}");
+}
+
+#[test]
+fn ui_tls_and_ui_flags() {
+    let s = load_ok(Sources {
+        cli: cli(&[
+            ("ui-tls-cert", Some("auto")),
+            ("hide-delete-all-button", None),
+        ]),
+        env: env(&[("MP_BLOCK_REMOTE_CSS_AND_FONTS", "1")]),
+    })
+    .settings;
+    assert_eq!(s.http.tls, Some(TlsSource::Auto));
+    assert!(s.http.hide_delete_all_button && s.http.block_remote_css_and_fonts);
+    let err = load(&Sources {
+        cli: cli(&[("ui-tls-cert", Some("cert.pem"))]),
+        env: vec![],
+    })
+    .expect_err("key missing");
+    assert!(err.to_string().contains("--ui-tls-key"), "{err}");
 }

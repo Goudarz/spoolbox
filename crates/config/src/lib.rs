@@ -270,6 +270,29 @@ fn cors_origins(raw: &str, origin: &Origin, diags: &mut Vec<Diagnostic>) -> Vec<
     out
 }
 
+/// `auto` (self-signed) or a certificate and key file pair.
+fn tls_source(
+    cert: Option<(String, Origin)>,
+    key: Option<(String, Origin)>,
+    key_flag: &str,
+    cert_flag: &str,
+) -> Result<Option<TlsSource>, ConfigError> {
+    match (cert, key) {
+        (Some((cert, _)), _) if cert.eq_ignore_ascii_case("auto") => Ok(Some(TlsSource::Auto)),
+        (Some((cert, _)), Some((key, _))) => Ok(Some(TlsSource::Files {
+            cert: cert.into(),
+            key: key.into(),
+        })),
+        (Some((_, origin)), None) => Err(ConfigError::Conflict(format!(
+            "{origin} requires {key_flag} (or use `auto` for a self-signed certificate)"
+        ))),
+        (None, Some((_, origin))) => Err(ConfigError::Conflict(format!(
+            "{origin} requires {cert_flag}"
+        ))),
+        (None, None) => Ok(None),
+    }
+}
+
 fn finish(
     b: Builder,
     config_file: Option<PathBuf>,
@@ -281,6 +304,7 @@ fn finish(
         )));
     }
     let mut s = b.settings;
+    s.http.tls = tls_source(b.ui_tls_cert, b.ui_tls_key, "--ui-tls-key", "--ui-tls-cert")?;
     s.smtp.tls = match (b.tls_cert, b.tls_key) {
         (Some((cert, _)), _) if cert.eq_ignore_ascii_case("auto") => Some(TlsSource::Auto),
         (Some((cert, _)), Some((key, _))) => Some(TlsSource::Files {

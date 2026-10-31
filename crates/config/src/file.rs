@@ -30,6 +30,10 @@ struct Http {
     send_api_auth_accept_any: Option<bool>,
     cors_origins: Option<Vec<String>>,
     compression: Option<bool>,
+    tls_cert: Option<String>,
+    tls_key: Option<String>,
+    hide_delete_all_button: Option<bool>,
+    block_remote_css_and_fonts: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -160,6 +164,18 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Vec<Assignment>, ConfigEr
         Key::DisableHttpCompression,
         "http.compression",
         not(http.compression),
+    );
+    push(Key::UiTlsCert, "http.tls_cert", http.tls_cert);
+    push(Key::UiTlsKey, "http.tls_key", http.tls_key);
+    push(
+        Key::HideDeleteAllButton,
+        "http.hide_delete_all_button",
+        flag(http.hide_delete_all_button),
+    );
+    push(
+        Key::BlockRemoteCssAndFonts,
+        "http.block_remote_css_and_fonts",
+        flag(http.block_remote_css_and_fonts),
     );
 
     let smtp = cfg.smtp.unwrap_or_default();

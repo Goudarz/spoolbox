@@ -58,6 +58,10 @@ pub enum Key {
     DisableHttpCompression,
     EnableChaos,
     ChaosTriggers,
+    UiTlsCert,
+    UiTlsKey,
+    HideDeleteAllButton,
+    BlockRemoteCssAndFonts,
 }
 
 impl Key {
@@ -81,6 +85,8 @@ impl Key {
                 | Key::SmtpAuthAllowInsecure
                 | Key::DisableHttpCompression
                 | Key::EnableChaos
+                | Key::HideDeleteAllButton
+                | Key::BlockRemoteCssAndFonts
         )
     }
 }
@@ -99,6 +105,8 @@ pub(crate) struct Builder {
     pub send_api_auth: AuthSources,
     pub smtp_auth: AuthSources,
     pub cors: Option<(String, Origin)>,
+    pub ui_tls_cert: Option<(String, Origin)>,
+    pub ui_tls_key: Option<(String, Origin)>,
 }
 
 /// An htpasswd file and/or inline entries; the file wins when both are set.
@@ -260,6 +268,8 @@ impl Builder {
             Key::SmtpAuthFile => self.smtp_auth.file = non_empty(v, origin),
             Key::SmtpAuth => self.smtp_auth.inline = non_empty(v, origin),
             Key::ApiCors => self.cors = non_empty(v, origin),
+            Key::UiTlsCert => self.ui_tls_cert = non_empty(v, origin),
+            Key::UiTlsKey => self.ui_tls_key = non_empty(v, origin),
             Key::ChaosTriggers => {
                 if !v.is_empty() {
                     s.chaos.triggers =
@@ -316,7 +326,9 @@ impl Builder {
             | Key::SendApiAuthAcceptAny
             | Key::SmtpAuthAllowInsecure
             | Key::DisableHttpCompression
-            | Key::EnableChaos => {
+            | Key::EnableChaos
+            | Key::HideDeleteAllButton
+            | Key::BlockRemoteCssAndFonts => {
                 let on = parse_bool(v).ok_or_else(|| invalid("expected true or false"))?;
                 match key {
                     Key::SmtpRequireStarttls => s.smtp.require_starttls = on,
@@ -332,6 +344,8 @@ impl Builder {
                     Key::SmtpAuthAllowInsecure => s.smtp.auth_allow_insecure = on,
                     Key::DisableHttpCompression => s.http.compression = !on,
                     Key::EnableChaos => s.chaos.enabled |= on,
+                    Key::HideDeleteAllButton => s.http.hide_delete_all_button = on,
+                    Key::BlockRemoteCssAndFonts => s.http.block_remote_css_and_fonts = on,
                     _ => s.tags.username = on,
                 }
             }

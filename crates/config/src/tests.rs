@@ -621,3 +621,43 @@ fn ui_tls_and_ui_flags() {
     .expect_err("key missing");
     assert!(err.to_string().contains("--ui-tls-key"), "{err}");
 }
+
+#[test]
+fn chaos_rules_from_the_config_file() {
+    let mut f = tempfile::NamedTempFile::new().expect("tempfile");
+    write!(
+        f,
+        r#"
+[chaos]
+[[chaos.rules]]
+stage = "recipient"
+match = "@flaky[.]test$"
+code = 452
+message = "4.2.2 Mailbox full"
+times = 2
+
+[[chaos.rules]]
+stage = "connect"
+delay_ms = 1500
+"#
+    )
+    .expect("write");
+    let s = load_ok(Sources {
+        cli: cli(&[("config", f.path().to_str())]),
+        env: vec![],
+    })
+    .settings;
+    assert!(s.chaos.enabled, "rules imply chaos");
+    assert_eq!(s.chaos.rules.len(), 2);
+    assert_eq!(s.chaos.rules[0].times, Some(2));
+    assert_eq!(s.chaos.rules[1].delay_ms, 1500);
+
+    let mut bad = tempfile::NamedTempFile::new().expect("tempfile");
+    write!(bad, "[[chaos.rules]]\nstage = \"quit\"\ncode = 451\n").expect("write");
+    let err = load(&Sources {
+        cli: cli(&[("config", bad.path().to_str())]),
+        env: vec![],
+    })
+    .expect_err("bad stage");
+    assert!(err.to_string().contains("chaos.rules[0]"), "{err}");
+}

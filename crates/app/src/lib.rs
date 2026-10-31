@@ -146,10 +146,12 @@ impl Core {
             .map(|n| n.get().min(4))
             .unwrap_or(2);
         let indexer = Indexer::new(store.clone(), wake, workers);
-        let chaos = s
-            .chaos
-            .enabled
-            .then(|| Arc::new(spoolbox_core::chaos::Chaos::new(s.chaos.triggers)));
+        let chaos = s.chaos.enabled.then(|| {
+            let chaos = spoolbox_core::chaos::Chaos::new(s.chaos.triggers);
+            // Already validated when the configuration was loaded.
+            let _ = chaos.set_rules(s.chaos.rules.clone());
+            Arc::new(chaos)
+        });
         let transcripts = s
             .smtp
             .transcripts

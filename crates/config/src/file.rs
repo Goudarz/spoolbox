@@ -17,6 +17,28 @@ struct FileConfig {
     tags: Option<Tags>,
     network: Option<Network>,
     log: Option<Log>,
+    chaos: Option<ChaosFile>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct ChaosFile {
+    enabled: Option<bool>,
+    triggers: Option<String>,
+    rules: Option<Vec<RuleFile>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RuleFile {
+    stage: String,
+    #[serde(rename = "match")]
+    pattern: Option<String>,
+    code: Option<u16>,
+    message: Option<String>,
+    delay_ms: Option<u64>,
+    disconnect: Option<bool>,
+    times: Option<u32>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -97,7 +119,10 @@ struct Log {
 
 pub(crate) type Assignment = (Key, String, Origin);
 
-pub(crate) fn read(path: &Path) -> Result<Vec<Assignment>, ConfigError> {
+/// Settings from the file, plus chaos rules (structured, so not expressible as one value).
+pub(crate) type Parsed = (Vec<Assignment>, Option<Vec<spoolbox_core::chaos::Rule>>);
+
+pub(crate) fn read(path: &Path) -> Result<Parsed, ConfigError> {
     let text = std::fs::read_to_string(path).map_err(|source| ConfigError::FileRead {
         path: path.to_path_buf(),
         source,
@@ -121,11 +146,36 @@ fn join(v: Option<Vec<String>>) -> Option<String> {
     v.map(|v| v.join(","))
 }
 
-pub(crate) fn parse(text: &str, path: &Path) -> Result<Vec<Assignment>, ConfigError> {
-    let cfg: FileConfig = toml::from_str(text).map_err(|e| ConfigError::FileParse {
+fn rules(path: &Path, list: Vec<RuleFile>) -> Result<Vec<spoolbox_core::chaos::Rule>, ConfigError> {
+    list.into_iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let invalid = |message: String| ConfigError::FileParse {
+                path: path.to_path_buf(),
+                message: format!("chaos.rules[{i}]: {message}"),
+            };
+            let rule = spoolbox_core::chaos::Rule {
+                stage: spoolbox_core::chaos::RuleStage::parse(&r.stage).map_err(invalid)?,
+                pattern: r.pattern,
+                code: r.code,
+                message: r.message,
+                delay_ms: r.delay_ms.unwrap_or(0),
+                disconnect: r.disconnect.unwrap_or(false),
+                times: r.times,
+            };
+            rule.validate().map_err(invalid)?;
+            Ok(rule)
+        })
+        .collect()
+}
+
+pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
+    let mut cfg: FileConfig = toml::from_str(text).map_err(|e| ConfigError::FileParse {
         path: path.to_path_buf(),
         message: e.to_string(),
     })?;
+    let chaos = cfg.chaos.take().unwrap_or_default();
+    let chaos_rules = chaos.rules.map(|r| rules(path, r)).transpose()?;
     let mut out = Vec::new();
     let mut push = |key: Key, name: &str, value: Option<String>| {
         if let Some(v) = value {
@@ -306,5 +356,7 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Vec<Assignment>, ConfigEr
     push(Key::LogLevel, "log.level", log.level);
     push(Key::LogFormat, "log.format", log.format);
     push(Key::LogFile, "log.file", log.file);
-    Ok(out)
+    push(Key::EnableChaos, "chaos.enabled", flag(chaos.enabled));
+    push(Key::ChaosTriggers, "chaos.triggers", chaos.triggers);
+    Ok((out, chaos_rules))
 }

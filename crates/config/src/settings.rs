@@ -23,6 +23,8 @@ pub struct Settings {
 pub struct ChaosSettings {
     pub enabled: bool,
     pub triggers: spoolbox_core::chaos::Triggers,
+    /// `[[chaos.rules]]` from the configuration file.
+    pub rules: Vec<spoolbox_core::chaos::Rule>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

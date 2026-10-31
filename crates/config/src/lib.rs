@@ -62,8 +62,14 @@ pub fn load(sources: &Sources) -> Result<Loaded, ConfigError> {
         .or_else(|| env.get(CONFIG_ENV).map(|v| v.to_string()))
         .map(PathBuf::from);
     if let Some(path) = &config_file {
-        for (key, value, origin) in file::read(path)? {
+        let (assignments, rules) = file::read(path)?;
+        for (key, value, origin) in assignments {
             b.apply(key, &value, &origin)?;
+        }
+        if let Some(rules) = rules {
+            // Rules only make sense with chaos on, so configuring them enables it.
+            b.settings.chaos.enabled |= !rules.is_empty();
+            b.settings.chaos.rules = rules;
         }
     }
 

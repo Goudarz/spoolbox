@@ -209,3 +209,43 @@ async fn username_tags_and_disabled_sources() {
         .expect("row");
     assert_eq!(row.tags, ["Release Notes"]);
 }
+
+#[tokio::test]
+async fn tag_rules_apply_after_indexing() {
+    let mut s = Settings::default();
+    s.tags.rules = vec![
+        spoolbox_config::TagRule {
+            query: "subject:invoice".into(),
+            tags: vec!["Finance".into()],
+        },
+        // Full-text rules need the index, which is why rules run after indexing.
+        spoolbox_config::TagRule {
+            query: "482913".into(),
+            tags: vec!["OTP".into(), "Finance".into()],
+        },
+    ];
+    let srv = start(s).await;
+    let hit = queued_id(
+        &send(
+            &srv.addr,
+            &["a@example.com"],
+            "Subject: Your invoice\n\nCode 482913\n",
+        )
+        .await,
+    );
+    let miss = queued_id(
+        &send(
+            &srv.addr,
+            &["a@example.com"],
+            "Subject: Hello\n\nNothing here\n",
+        )
+        .await,
+    );
+    srv.core.indexer.run_batch().await;
+    let store = &srv.core.store;
+    assert_eq!(
+        store.get(&hit).expect("get").expect("row").tags,
+        ["Finance", "OTP"]
+    );
+    assert!(store.get(&miss).expect("get").expect("row").tags.is_empty());
+}

@@ -1779,6 +1779,7 @@ dependencies = [
  "spoolbox-config",
  "spoolbox-core",
  "spoolbox-mime",
+ "spoolbox-search",
  "spoolbox-smtp",
  "spoolbox-store",
  "tokio",

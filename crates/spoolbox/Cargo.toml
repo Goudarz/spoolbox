@@ -1,0 +1,32 @@
+[package]
+name = "spoolbox"
+description = "Email and SMTP testing tool for developers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "spoolbox"
+path = "src/main.rs"
+
+[dependencies]
+spoolbox-core.workspace = true
+spoolbox-config.workspace = true
+spoolbox-http.workspace = true
+spoolbox-app.workspace = true
+spoolbox-smtp.workspace = true
+clap.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util", "time", "signal"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+spoolbox-store.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

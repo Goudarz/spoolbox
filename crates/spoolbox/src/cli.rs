@@ -32,29 +32,36 @@ fn client_args(cmd: Command) -> Command {
 }
 
 pub fn command() -> Command {
-    let server_args = FLAGS.iter().map(|f| {
-        let mut arg = Arg::new(f.long).long(f.long);
-        if let Some(s) = f.short {
-            arg = arg.short(s);
-        }
-        arg = if f.takes_value {
-            arg.action(ArgAction::Set).value_name("VALUE")
-        } else {
-            arg.action(ArgAction::SetTrue)
-        };
-        // Compatibility options that are not implemented yet are accepted (and reported), but not advertised.
-        if matches!(f.status, Status::Active(_)) {
-            arg.help(f.help)
-        } else {
-            arg.hide(true)
-        }
-    });
+    let server_args = || {
+        FLAGS.iter().map(|f| {
+            let mut arg = Arg::new(f.long).long(f.long);
+            if let Some(s) = f.short {
+                arg = arg.short(s);
+            }
+            arg = if f.takes_value {
+                arg.action(ArgAction::Set).value_name("VALUE")
+            } else {
+                arg.action(ArgAction::SetTrue)
+            };
+            // Compatibility options that are not implemented yet are accepted (and reported), but not advertised.
+            if matches!(f.status, Status::Active(_)) {
+                arg.help(f.help)
+            } else {
+                arg.hide(true)
+            }
+        })
+    };
 
     Command::new("spoolbox")
         .version(spoolbox_core::VERSION)
         .about("Email and SMTP testing tool for developers. Without a subcommand, runs the server.")
         .args_conflicts_with_subcommands(true)
-        .args(server_args)
+        .args(server_args())
+        .subcommand(
+            Command::new("doctor")
+                .about("Check configuration, ports, TLS and storage, and explain problems (takes the server's flags)")
+                .args(server_args()),
+        )
         .subcommand(
             Command::new("readyz")
                 .about("Check whether a running Spoolbox is ready (exit code 0 = ready)")

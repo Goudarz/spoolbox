@@ -1,5 +1,6 @@
 mod cli;
 mod client;
+mod doctor;
 mod logging;
 mod readyz;
 mod remote;
@@ -36,6 +37,7 @@ fn main() -> ExitCode {
         Some(("readyz", m)) => runtime.block_on(run_readyz(m)),
         Some(("reindex", m)) => runtime.block_on(run_reindex(m)),
         Some(("send-sample", m)) => runtime.block_on(run_send_sample(m)),
+        Some(("doctor", m)) => runtime.block_on(run_doctor(cli::given_flags(m))),
         Some(("wait", m)) => runtime.block_on(run_wait(m)),
         Some(("export", m)) => runtime.block_on(run_export(m)),
         Some(("import", m)) => runtime.block_on(run_import(m)),
@@ -121,6 +123,25 @@ fn client_for(m: &clap::ArgMatches) -> Result<client::Client, ExitCode> {
         m.get_flag("https"),
         auth.as_deref(),
     ))
+}
+
+async fn run_doctor(cli: Vec<(String, Option<String>)>) -> ExitCode {
+    let loaded = match spoolbox_config::load(&Sources {
+        cli,
+        env: process_env(),
+    }) {
+        Ok(l) => l,
+        Err(e) => {
+            println!("[FAIL] config       {e}");
+            return ExitCode::from(EXIT_CONFIG);
+        }
+    };
+    println!("spoolbox {}", spoolbox_core::VERSION);
+    if doctor::print(&doctor::run(&loaded).await) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(EXIT_RUNTIME)
+    }
 }
 
 async fn run_wait(m: &clap::ArgMatches) -> ExitCode {

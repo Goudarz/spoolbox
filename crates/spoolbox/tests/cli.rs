@@ -289,3 +289,33 @@ fn wait_import_and_export() {
     );
     assert!(String::from_utf8_lossy(&again.stderr).contains("imported 1 message"));
 }
+
+fn free_port() -> String {
+    let l = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    l.local_addr().expect("addr").to_string()
+}
+
+#[test]
+fn doctor_explains_port_problems() {
+    let (http, smtp) = (free_port(), free_port());
+    let out = run(&["doctor", "--listen", &http, "--smtp", &smtp], &[]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success(), "{text}");
+    assert!(text.contains(&format!("{http} is free")), "{text}");
+
+    let srv = start(&[]);
+    let out = run(&["doctor", "--listen", &srv.addr, "--smtp", &smtp], &[]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("served by a running Spoolbox"), "{text}");
+
+    let other = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let taken = other.local_addr().expect("addr").to_string();
+    let out = run(&["doctor", "--listen", &http, "--smtp", &taken], &[]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(1), "{text}");
+    assert!(text.contains("used by another program"), "{text}");
+
+    let out = run(&["doctor", "--max", "lots"], &[]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("[FAIL] config"));
+}

@@ -469,3 +469,31 @@ fn incremental_vacuum_after_delete() {
     assert!(store_uncompressed.free_ratio().expect("ratio") < 0.1);
     let _ = store;
 }
+
+#[test]
+fn generic_jobs_carry_payloads_and_can_fail() {
+    let s = temp_store(0);
+    let id = s
+        .enqueue("webhook", None, r#"{"url":"http://x"}"#, Duration::ZERO)
+        .expect("enqueue");
+    s.enqueue("webhook", None, "{}", Duration::from_secs(3600))
+        .expect("later");
+    let jobs = s
+        .claim_jobs("webhook", 10, Duration::from_secs(30))
+        .expect("claim");
+    assert_eq!(jobs.len(), 1, "the delayed job is not due yet");
+    assert_eq!(
+        (jobs[0].id, jobs[0].payload.as_str()),
+        (id, r#"{"url":"http://x"}"#)
+    );
+    s.fail_job(&jobs[0], "HTTP 500").expect("fail");
+    assert_eq!(
+        s.failed_jobs("webhook", 10).expect("failed"),
+        [(None, 1, "HTTP 500".to_string())]
+    );
+    assert!(
+        s.claim_jobs("webhook", 10, Duration::from_secs(30))
+            .expect("claim")
+            .is_empty()
+    );
+}

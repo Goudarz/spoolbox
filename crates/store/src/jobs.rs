@@ -15,6 +15,8 @@ pub struct Job {
     pub message_seq: Option<i64>,
     /// Including the current attempt.
     pub attempts: i64,
+    /// JSON with job-specific details (`{}` for index jobs).
+    pub payload: String,
 }
 
 impl Store {
@@ -25,7 +27,7 @@ impl Store {
         let mut st = conn.prepare(
             "UPDATE outbox SET state = 'claimed', lease_until = ?1, attempts = attempts + 1
              WHERE id IN (SELECT id FROM outbox WHERE kind = ?2 AND state = 'pending' AND next_at <= ?3 ORDER BY id LIMIT ?4)
-             RETURNING id, kind, message_seq, attempts",
+             RETURNING id, kind, message_seq, attempts, payload",
         )?;
         let jobs = st
             .query_map(params![lease_until, kind, now, limit as i64], |r| {
@@ -34,6 +36,7 @@ impl Store {
                     kind: r.get(1)?,
                     message_seq: r.get(2)?,
                     attempts: r.get(3)?,
+                    payload: r.get(4)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -148,6 +151,51 @@ impl Store {
         drop(conn);
         self.notify(event_seq);
         Ok(())
+    }
+
+    /// Queues a job (webhook, relay, ...) to run after `delay`.
+    pub fn enqueue(
+        &self,
+        kind: &str,
+        message_seq: Option<i64>,
+        payload: &str,
+        delay: Duration,
+    ) -> Result<i64> {
+        let next = now_micros() + delay.as_micros() as i64;
+        let conn = self.writer();
+        conn.execute(
+            "INSERT INTO outbox (kind, message_seq, payload, next_at) VALUES (?1, ?2, ?3, ?4)",
+            params![kind, message_seq, payload, next],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Removes a job that completed.
+    pub fn finish_job(&self, job: &Job) -> Result<()> {
+        self.writer()
+            .execute("DELETE FROM outbox WHERE id = ?1", [job.id])?;
+        Ok(())
+    }
+
+    /// Gives up on a job; it stays in the outbox as `failed` with its last error.
+    pub fn fail_job(&self, job: &Job, error: &str) -> Result<()> {
+        self.writer().execute(
+            "UPDATE outbox SET state = 'failed', lease_until = NULL, last_error = ?2 WHERE id = ?1",
+            params![job.id, error],
+        )?;
+        Ok(())
+    }
+
+    /// Jobs of one kind that gave up: (message seq, attempts, last error), newest first.
+    pub fn failed_jobs(&self, kind: &str, limit: usize) -> Result<Vec<(Option<i64>, i64, String)>> {
+        self.read(|c| {
+            let mut st = c.prepare(
+                "SELECT message_seq, attempts, COALESCE(last_error, '') FROM outbox WHERE kind = ?1 AND state = 'failed' ORDER BY id DESC LIMIT ?2",
+            )?;
+            Ok(st
+                .query_map(params![kind, limit as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<std::result::Result<_, _>>()?)
+        })
     }
 
     /// Puts a job back for a later attempt (transient failure).

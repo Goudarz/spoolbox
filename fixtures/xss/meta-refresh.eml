@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss meta-refresh
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><meta http-equiv="refresh" content="0;url=javascript:alert(1)"><p>refresh</p></body></html>

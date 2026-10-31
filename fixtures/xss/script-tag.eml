@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss script-tag
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>hello</p><script>parent.__xss=1;alert(1)</script></body></html>

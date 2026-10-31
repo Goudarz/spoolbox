@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss svg-onload
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><svg onload="parent.__xss=1;alert(1)"><circle r="5"/></svg></body></html>

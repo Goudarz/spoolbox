@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss event-in-svg-use
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><svg><a xlink:href="javascript:alert(1)"><text x="10" y="20">svg link</text></a></svg></body></html>

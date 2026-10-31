@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss object-embed
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><object data="javascript:alert(1)"></object><embed src="javascript:alert(1)"></body></html>

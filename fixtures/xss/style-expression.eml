@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss style-expression
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><div style="width:expression(alert(1));background:url(javascript:alert(1))">css</div></body></html>

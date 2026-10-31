@@ -1,0 +1,7 @@
+From: xss@example.com
+To: victim@example.com
+Subject: xss iframe-srcdoc
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><iframe srcdoc="<script>parent.parent.__xss=1;alert(1)</script>"></iframe></body></html>

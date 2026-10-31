@@ -49,6 +49,8 @@ pub struct HttpSettings {
     pub hide_delete_all_button: bool,
     /// Remote stylesheets and fonts are not loaded in message previews.
     pub block_remote_css_and_fonts: bool,
+    /// MCP clients may delete messages.
+    pub mcp_allow_delete: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,6 +179,7 @@ impl Default for Settings {
                 tls: None,
                 hide_delete_all_button: false,
                 block_remote_css_and_fonts: false,
+                mcp_allow_delete: false,
             },
             smtp: SmtpSettings {
                 listen: ListenAddr::loopback(1025),

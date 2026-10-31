@@ -210,6 +210,12 @@ pub const FLAGS: &[FlagSpec] = &[
         Active(Key::LogFormat),
     ),
     native(
+        "mcp-allow-delete",
+        false,
+        "Let MCP clients (AI assistants) delete messages",
+        Active(Key::McpAllowDelete),
+    ),
+    native(
         "smtp-transcripts",
         false,
         "Keep redacted transcripts of the last 200 SMTP sessions (api/v2/transcripts)",

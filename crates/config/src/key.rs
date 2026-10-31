@@ -63,6 +63,7 @@ pub enum Key {
     HideDeleteAllButton,
     BlockRemoteCssAndFonts,
     SmtpTranscripts,
+    McpAllowDelete,
 }
 
 impl Key {
@@ -89,6 +90,7 @@ impl Key {
                 | Key::HideDeleteAllButton
                 | Key::BlockRemoteCssAndFonts
                 | Key::SmtpTranscripts
+                | Key::McpAllowDelete
         )
     }
 }
@@ -331,7 +333,8 @@ impl Builder {
             | Key::EnableChaos
             | Key::HideDeleteAllButton
             | Key::BlockRemoteCssAndFonts
-            | Key::SmtpTranscripts => {
+            | Key::SmtpTranscripts
+            | Key::McpAllowDelete => {
                 let on = parse_bool(v).ok_or_else(|| invalid("expected true or false"))?;
                 match key {
                     Key::SmtpRequireStarttls => s.smtp.require_starttls = on,
@@ -350,6 +353,7 @@ impl Builder {
                     Key::HideDeleteAllButton => s.http.hide_delete_all_button = on,
                     Key::BlockRemoteCssAndFonts => s.http.block_remote_css_and_fonts = on,
                     Key::SmtpTranscripts => s.smtp.transcripts = on,
+                    Key::McpAllowDelete => s.http.mcp_allow_delete = on,
                     _ => s.tags.username = on,
                 }
             }

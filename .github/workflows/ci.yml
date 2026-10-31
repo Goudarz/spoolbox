@@ -116,3 +116,30 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
         run: npm run test:e2e
+
+  examples:
+    name: examples
+    runs-on: ubuntu-latest
+    env:
+      SPOOLBOX_URL: http://127.0.0.1:8025/
+      SPOOLBOX_SMTP: 127.0.0.1:1025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build and start the server
+        run: |
+          cargo build -p spoolbox --locked
+          ./target/debug/spoolbox --log-level warn &
+          ./target/debug/spoolbox readyz --wait --timeout 30s
+      - name: Python
+        run: python3 -I examples/python/test_signup.py
+      - name: Node.js
+        run: node --test examples/node/
+      - name: Go
+        working-directory: examples/go
+        run: go test ./...
+      - name: Shell
+        run: SPOOLBOX=./target/debug/spoolbox sh examples/shell/signup.sh

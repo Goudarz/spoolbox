@@ -1,0 +1,22 @@
+# Spoolbox next to an application in Docker Compose.
+# The application sends mail to spoolbox:1025; the web UI is on http://localhost:8025.
+services:
+  spoolbox:
+    image: spoolbox:latest # build with: docker build -t spoolbox .
+    ports:
+      - "127.0.0.1:8025:8025" # web UI and API, this machine only
+    volumes:
+      - spoolbox-data:/data
+    command: ["--database", "/data/spoolbox.db", "--max", "5000"]
+
+  app:
+    image: your-app:latest
+    environment:
+      SMTP_HOST: spoolbox
+      SMTP_PORT: "1025"
+    depends_on:
+      spoolbox:
+        condition: service_healthy
+
+volumes:
+  spoolbox-data:

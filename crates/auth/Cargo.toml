@@ -4,6 +4,7 @@ description = "htpasswd credentials (bcrypt, SHA-crypt, Apache MD5, SHA1, plaint
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true

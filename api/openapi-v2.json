@@ -4,7 +4,7 @@
     "title": "Spoolbox API v2 (preview)",
     "version": "v2-preview",
     "description": "Preview of the native Spoolbox API (ADR-010). MVP scope: wait, envelope, MIME tree, link and code extraction, event stream. Breaking changes are allowed until v1.0; the API will grow into a complete one in later releases. JSON uses snake_case; errors use RFC 9457 problem details.",
-    "license": { "name": "MIT OR Apache-2.0", "identifier": "MIT OR Apache-2.0" }
+    "license": { "name": "MIT", "identifier": "MIT" }
   },
   "servers": [{ "url": "/", "description": "Prefix with --webroot when set" }],
   "security": [{}, { "basicAuth": [] }],

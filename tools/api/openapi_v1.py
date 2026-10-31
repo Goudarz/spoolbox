@@ -202,7 +202,7 @@ doc = {
         "version": "v1",
         "description": "Stable API used by the web UI and test clients. JSON field names are PascalCase (list summaries use snake_case). "
                        "Errors are `text/plain` with status 400 (send API: JSON `{\"Error\"}`). Prefix every path with --webroot when set.",
-        "license": {"name": "MIT OR Apache-2.0", "identifier": "MIT OR Apache-2.0"},
+        "license": {"name": "MIT", "identifier": "MIT"},
     },
     "servers": [{"url": "/", "description": "Prefix with --webroot when set"}],
     "security": [{}, {"basicAuth": []}],

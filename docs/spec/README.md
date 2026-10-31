@@ -69,6 +69,6 @@
 2. **D2** پیام خام در SQLite blob (ADR-003).
 3. **D3** پیش‌فرض bind به `127.0.0.1`؛ Docker image روی `0.0.0.0` (ADR-008).
 4. **D4** `/api/v1` پایدار + `/api/v2` جدید (ADR-010).
-5. **D5** مجوز `MIT OR Apache-2.0` (ADR-012).
+5. **D5** مجوز `MIT` (ADR-012).
 6. **D6** frontend: Svelte + TypeScript + Vite (ADR-013).
 7. **D7** بدون rqlite و tenant-prefix؛ namespace به‌جای tenant (ADR-016).

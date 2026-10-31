@@ -8,7 +8,7 @@ all-features = true
 ignore = []
 
 [licenses]
-# Permissive licences only; the shipped binary must stay compatible with MIT OR Apache-2.0.
+# Permissive licences only; the shipped binary must stay compatible with MIT.
 allow = [
     "MIT",
     "Apache-2.0",

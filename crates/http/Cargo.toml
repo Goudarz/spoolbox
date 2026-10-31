@@ -4,6 +4,7 @@ description = "HTTP server: API v1, API v2 preview, events (WebSocket/SSE), auth
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true

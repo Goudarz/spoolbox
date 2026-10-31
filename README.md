@@ -170,5 +170,5 @@ Design documents: [`docs/spec/`](docs/spec/README.md) (Persian) and [`docs/adr/`
 
 ## Licence
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT licence](LICENSE-MIT)
-at your option. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Goudarz Jafari <hi@goudarzjafari.com>.
+Dependency licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

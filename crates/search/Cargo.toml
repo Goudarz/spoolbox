@@ -4,6 +4,7 @@ description = "Search query language parsed into an AST"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true

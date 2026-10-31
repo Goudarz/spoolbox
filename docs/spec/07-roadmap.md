@@ -233,14 +233,14 @@ MVP = ابزار قابل‌استفاده برای **توسعه محلی و CI 
 | 009 | رویدادها | event log ترتیبی پایدار + outbox | Proposed |
 | 010 | نسخه‌بندی API | v1 compat + v2؛ flagهای compat | Proposed |
 | 011 | قرارداد API | spec-first OpenAPI + contract tests | Proposed |
-| 012 | مجوز و استقلال | MIT OR Apache-2.0؛ clean-room behavioral | Proposed |
+| 012 | مجوز و استقلال | MIT | Accepted |
 | 013 | Frontend | منتظر Q2 | Open |
 | 014 | سیاست egress (SSRF) | ماژول مستقل با تست‌های جدول T9 | Proposed |
 | 015 | سیاست toolchain و وابستگی | `rust-toolchain.toml` پین روی **1.99.1** (آخرین stable، هم‌سان با محیط توسعه مالک)؛ MSRV اعلام‌شده برای `cargo install` = **1.98** (stable−1)؛ ارتقای toolchain در هر release جدید Rust طی ≤ 2 هفته؛ cargo-deny؛ بدون نسخه crate < 14 روز | Proposed |
 
 ## 15 (درخواست). مجوز، انتشار و استقلال پروژه
 
-- مجوز Spoolbox: **MIT OR Apache-2.0** (ADR-012). همه کد و داده‌های مخزن متعلق به همین پروژه است؛ قرارداد API v1 (`api/openapi-v1.json`) و snapshotها (`fixtures/api-v1/`) از خود Spoolbox تولید می‌شوند.
+- مجوز Spoolbox: **MIT** (ADR-012)، صاحب حق نشر Goudarz Jafari <hi@goudarzjafari.com>. همه کد و داده‌های مخزن متعلق به همین پروژه است؛ قرارداد API v1 (`api/openapi-v1.json`) و snapshotها (`fixtures/api-v1/`) از خود Spoolbox تولید می‌شوند.
 - مجوز همه وابستگی‌ها با cargo-deny بررسی می‌شود و گزارش `THIRD_PARTY_LICENSES` در هر release تولید می‌شود.
 - داده caniemail (HTML check): مجوز آن پیش از استفاده بررسی شود.
 
@@ -256,7 +256,7 @@ MVP = ابزار قابل‌استفاده برای **توسعه محلی و CI 
 ## 18. نقطه توقف و تأیید
 
 ### 1. مهم‌ترین تصمیم‌های نیازمند تأیید
-✅ همه تأیید شدند (2026-10-24): D1 modular monolith · D2 SQLite blob (benchmark-gated) · D3 loopback · D4 v1 سازگار + v2 · D5 MIT OR Apache-2.0 · D6 Svelte · D7 حذف rqlite/tenant. جزئیات: [docs/adr/](../adr/README.md).
+✅ همه تأیید شدند (2026-10-24): D1 modular monolith · D2 SQLite blob (benchmark-gated) · D3 loopback · D4 v1 سازگار + v2 · D5 MIT · D6 Svelte · D7 حذف rqlite/tenant. جزئیات: [docs/adr/](../adr/README.md).
 
 ### 2. ابهام‌های حل‌نشدنی بدون مالک
 Q1–Q8 در §20.

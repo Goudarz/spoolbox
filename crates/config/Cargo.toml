@@ -4,6 +4,7 @@ description = "Layered configuration (defaults, TOML file, MP_*/SPOOLBOX_* env, 
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true

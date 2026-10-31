@@ -15,7 +15,7 @@
 | [009](009-events-outbox.md) | Event log ترتیبی + outbox | Accepted |
 | [010](010-api-versioning.md) | v1 سازگار + v2 | Accepted |
 | [011](011-api-contract.md) | OpenAPI spec-first | Accepted |
-| [012](012-license.md) | MIT OR Apache-2.0، clean-room | Accepted |
+| [012](012-license.md) | MIT | Accepted |
 | [013](013-frontend.md) | Svelte 5 + TypeScript + Vite | Accepted |
 | [014](014-egress-policy.md) | سیاست egress (SSRF) | Accepted |
 | [015](015-toolchain-dependencies.md) | Toolchain 1.99.1 و سیاست وابستگی | Accepted |

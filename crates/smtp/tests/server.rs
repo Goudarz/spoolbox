@@ -332,11 +332,16 @@ fn tempfile_dir() -> PathBuf {
     dir
 }
 
-fn rand_suffix() -> u128 {
-    std::time::SystemTime::now()
+/// Unique per call: tests run in parallel and the clock is too coarse on some platforms
+/// to tell two calls apart, which made tests load each other's certificates.
+fn rand_suffix() -> String {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    format!("{n}-{nanos}")
 }
 
 fn connector(roots: rustls::RootCertStore) -> tokio_rustls::TlsConnector {

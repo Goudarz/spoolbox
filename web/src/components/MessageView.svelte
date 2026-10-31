@@ -120,13 +120,13 @@
   {:else if !msg}
     <p class="muted" aria-busy="true">…</p>
   {:else}
-    <h1 dir="auto">{msg.Subject || t('noSubject')}</h1>
+    <h1><bdi>{msg.Subject || t('noSubject')}</bdi></h1>
     <dl class="head">
-      {#if msg.From}<dt>{t('from')}</dt><dd dir="auto">{show([msg.From])}</dd>{/if}
-      {#if msg.To.length}<dt>{t('to')}</dt><dd dir="auto">{show(msg.To)}</dd>{/if}
-      {#if msg.Cc.length}<dt>{t('cc')}</dt><dd dir="auto">{show(msg.Cc)}</dd>{/if}
-      {#if msg.Bcc.length}<dt>{t('bcc')}</dt><dd dir="auto">{show(msg.Bcc)}</dd>{/if}
-      {#if msg.ReplyTo.length}<dt>{t('replyTo')}</dt><dd dir="auto">{show(msg.ReplyTo)}</dd>{/if}
+      {#if msg.From}<dt>{t('from')}</dt><dd><bdi>{show([msg.From])}</bdi></dd>{/if}
+      {#if msg.To.length}<dt>{t('to')}</dt><dd><bdi>{show(msg.To)}</bdi></dd>{/if}
+      {#if msg.Cc.length}<dt>{t('cc')}</dt><dd><bdi>{show(msg.Cc)}</bdi></dd>{/if}
+      {#if msg.Bcc.length}<dt>{t('bcc')}</dt><dd><bdi>{show(msg.Bcc)}</bdi></dd>{/if}
+      {#if msg.ReplyTo.length}<dt>{t('replyTo')}</dt><dd><bdi>{show(msg.ReplyTo)}</bdi></dd>{/if}
       <dt>{t('date')}</dt><dd>{formatDate(msg.Date)} · {formatSize(msg.Size)}</dd>
       <dt>{t('tags')}</dt><dd><TagEditor id={msg.ID} bind:tags={msg.Tags} /></dd>
     </dl>

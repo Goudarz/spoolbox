@@ -70,8 +70,10 @@
     <span class="status" class:on={box.connected} title={box.connected ? t('live') : t('offline')}>
       <span class="visually-hidden">{box.connected ? t('live') : t('offline')}</span>
     </span>
+    {#if route.current.name !== 'message'}
     <button type="button" onclick={markAllRead} disabled={box.unread === 0}>{t('markAllRead')}</button>
-    {#if !box.ui.HideDeleteAllButton}
+    {/if}
+    {#if !box.ui.HideDeleteAllButton && route.current.name !== 'message'}
       <button type="button" class="danger" onclick={deleteAll} disabled={box.messages.length === 0}>
         {box.query ? t('deleteResults') : t('deleteAll')}
       </button>

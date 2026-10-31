@@ -42,19 +42,19 @@
     {#each box.messages as m, i (m.ID)}
       <li class:unread={!m.Read} class:selected={i === selected} data-index={i}>
         <a href={href({ name: 'message', id: m.ID })} onclick={(e) => open(e, m)} onfocus={() => (selected = i)}>
-          <span class="from" dir="auto">{sender(m)}</span>
+          <span class="from"><bdi>{sender(m)}</bdi></span>
           <span class="when">{formatDate(m.Created)}</span>
-          <span class="subject" dir="auto">
-            {#if !m.Read}<span class="visually-hidden">{t('unread')}: </span>{/if}{m.Subject || t('noSubject')}
+          <span class="subject">
+            {#if !m.Read}<span class="visually-hidden">{t('unread')}: </span>{/if}<bdi>{m.Subject || t('noSubject')}</bdi>
           </span>
           <span class="meta">
             {#if m.Attachments > 0}<span title={t('attachments')} aria-label={t('attachments')}>📎 {m.Attachments}</span>{/if}
             <span>{formatSize(m.Size)}</span>
           </span>
-          <span class="snippet muted" dir="auto">
+          <span class="snippet muted">
             <span class="to">{t('to')}: <bdi>{recipients(m)}</bdi></span>
-            {#each m.Tags as tag (tag)}<span class="tag" dir="auto">{tag}</span>{/each}
-            {m.Snippet}
+            {#each m.Tags as tag (tag)}<span class="tag"><bdi>{tag}</bdi></span>{/each}
+            <bdi class="text">{m.Snippet}</bdi>
           </span>
         </a>
       </li>
@@ -121,6 +121,11 @@
   }
   .to {
     flex: none;
+  }
+  .text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
   .state,
   .hint {

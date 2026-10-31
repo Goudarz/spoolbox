@@ -8,3 +8,6 @@ web/node_modules
 *.db
 *.db-wal
 *.db-shm
+web/dist
+web/test-results
+web/playwright-report

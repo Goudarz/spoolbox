@@ -84,3 +84,35 @@ jobs:
           ./target/debug/spoolbox --listen 127.0.0.1:28125 --smtp 127.0.0.1:21125 --log-level warn &
           ./target/debug/spoolbox readyz --listen 127.0.0.1:28125 --wait --timeout 30s
           python3 -I tools/snapshot/api_v1.py --api http://127.0.0.1:28125 --smtp 127.0.0.1:21125
+
+  web:
+    name: web UI (build, type check, e2e)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: Type check
+        run: npm run check
+      - name: Build
+        run: npm run build
+      - name: Install toolchain from rust-toolchain.toml
+        working-directory: .
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build the server with the UI embedded
+        working-directory: .
+        run: cargo build -p spoolbox --locked
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npm run test:e2e

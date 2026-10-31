@@ -1,9 +1,17 @@
 # syntax=docker/dockerfile:1
 # Static musl build on scratch, running as a non-root user (ADR-008).
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY web/ ./
+RUN npm run build
+
 FROM rust:1.99-alpine AS build
 RUN apk add --no-cache musl-dev
 WORKDIR /src
 COPY . .
+COPY --from=web /web/dist web/dist
 RUN cargo build --release --locked -p spoolbox \
  && mkdir -p /out/tmp /out/data \
  && cp target/release/spoolbox /out/spoolbox

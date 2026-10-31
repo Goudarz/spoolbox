@@ -44,6 +44,16 @@
         }
       }
     },
+    "/api/v2/events/cursor": {
+      "get": {
+        "summary": "Current position of the event log",
+        "description": "Take the position before triggering an email, then pass it as `since_seq` to `/api/v2/wait` so a message that arrives early is not missed.",
+        "operationId": "eventCursor",
+        "tags": ["events"],
+        "x-spoolbox-phase": "P6",
+        "responses": { "200": { "description": "Position", "content": { "application/json": { "schema": { "type": "object", "required": ["seq"], "properties": { "seq": { "type": "integer", "format": "int64" } } } } } } }
+      }
+    },
     "/api/v2/messages/{id}/envelope": {
       "get": {
         "summary": "SMTP envelope as received",

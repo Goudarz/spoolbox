@@ -25,6 +25,7 @@ pub(crate) fn routes() -> Router<Api> {
         .route("/api/v2/messages", post(import))
         .route("/api/v2/wait", post(wait))
         .route("/api/v2/events", get(events))
+        .route("/api/v2/events/cursor", get(cursor))
         .route("/api/v2/messages/{id}/envelope", get(envelope))
         .route("/api/v2/messages/{id}/mime", get(mime))
         .route("/api/v2/messages/{id}/links", get(links))
@@ -453,6 +454,19 @@ async fn wait(State(api): State<Api>, body: Bytes) -> Response {
             cursor = store.last_event_seq() - 10_000;
         }
     }
+}
+
+#[derive(Serialize)]
+struct Cursor {
+    seq: i64,
+}
+
+/// The current end of the event log. Take it before triggering an email, then pass it as
+/// `since_seq` to `/api/v2/wait`, so a message that arrives early is not missed.
+async fn cursor(State(api): State<Api>) -> Response {
+    ok(&Cursor {
+        seq: api.store().last_event_seq(),
+    })
 }
 
 #[derive(Serialize)]

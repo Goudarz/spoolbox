@@ -758,3 +758,21 @@ async fn import_raw_messages() {
         (StatusCode::BAD_REQUEST, "application/problem+json")
     );
 }
+
+#[tokio::test]
+async fn cursor_then_wait_does_not_miss_early_mail() {
+    let t = T::new();
+    let cursor = t.get_json("/api/v2/events/cursor").await["seq"]
+        .as_i64()
+        .expect("seq");
+    // The email arrives before anyone waits for it.
+    let id = t.put(PLAIN_MSG, &["erin@example.com"]).await;
+    let body =
+        json!({"query": "subject:plain", "timeout_ms": 1000, "since_seq": cursor}).to_string();
+    let (s, _, b) = t.req(Method::POST, "/api/v2/wait", Some(&body)).await;
+    assert_eq!(s, StatusCode::OK, "{}", text(&b));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&b).expect("json")["id"],
+        id.as_str()
+    );
+}

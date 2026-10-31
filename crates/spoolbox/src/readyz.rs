@@ -1,10 +1,8 @@
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio_rustls::rustls;
 
 const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(2);
 const RETRY_INTERVAL: Duration = Duration::from_millis(250);
@@ -41,7 +39,7 @@ async fn probe(addr: SocketAddr, webroot: &str, https: bool) -> std::io::Result<
         return request(tcp, webroot).await;
     }
     let name = rustls_pki_types::ServerName::IpAddress(addr.ip().into());
-    let tls = tokio_rustls::TlsConnector::from(local_client())
+    let tls = tokio_rustls::TlsConnector::from(crate::client::local_tls())
         .connect(name, tcp)
         .await?;
     request(tls, webroot).await
@@ -62,67 +60,6 @@ async fn request(
         .nth(1)
         .and_then(|code| code.parse().ok())
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "not an HTTP response"))
-}
-
-/// The probe connects only to the address this instance is configured to listen on, usually
-/// with a self-signed (`auto`) certificate, so the certificate is not verified.
-fn local_client() -> Arc<rustls::ClientConfig> {
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let config = rustls::ClientConfig::builder_with_provider(provider.clone())
-        .with_safe_default_protocol_versions()
-        .expect("ring supports the default protocol versions")
-        .dangerous()
-        .with_custom_certificate_verifier(Arc::new(AnyCertificate(provider)))
-        .with_no_client_auth();
-    Arc::new(config)
-}
-
-#[derive(Debug)]
-struct AnyCertificate(Arc<rustls::crypto::CryptoProvider>);
-
-impl rustls::client::danger::ServerCertVerifier for AnyCertificate {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &rustls_pki_types::CertificateDer<'_>,
-        _intermediates: &[rustls_pki_types::CertificateDer<'_>],
-        _server_name: &rustls_pki_types::ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: rustls_pki_types::UnixTime,
-    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::danger::ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        message: &[u8],
-        cert: &rustls_pki_types::CertificateDer<'_>,
-        dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        rustls::crypto::verify_tls12_signature(
-            message,
-            cert,
-            dss,
-            &self.0.signature_verification_algorithms,
-        )
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        message: &[u8],
-        cert: &rustls_pki_types::CertificateDer<'_>,
-        dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        rustls::crypto::verify_tls13_signature(
-            message,
-            cert,
-            dss,
-            &self.0.signature_verification_algorithms,
-        )
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        self.0.signature_verification_algorithms.supported_schemes()
-    }
 }
 
 /// Accepts Go-style durations for `readyz --timeout`: `500ms`, `30s`, `2m`, `1h`.

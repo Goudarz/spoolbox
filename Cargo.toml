@@ -65,6 +65,9 @@ zstd = { version = "0.14.3", default-features = false }
 spoolbox-search = { path = "crates/search" }
 spoolbox-auth = { path = "crates/auth" }
 jiff = "0.2.38"
+bytes = "1.12.1"
+hyper = { version = "1.12.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "0.1.21", default-features = false, features = ["tokio"] }
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 mail-builder = { version = "1.0.0", default-features = false }

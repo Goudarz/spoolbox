@@ -145,7 +145,7 @@
       {/each}
     </div>
 
-    <section id="panel" role="tabpanel" aria-labelledby="tab-{tab}" class="panel">
+    <div id="panel" role="tabpanel" aria-labelledby="tab-{tab}" class="panel">
       {#if tab === 'html'}
         {#if msg.HTML}
           <HtmlPreview id={msg.ID} trackingPixels={pixels} />
@@ -216,7 +216,7 @@
           </dl>
         {/if}
       {/if}
-    </section>
+    </div>
   {/if}
 </article>
 

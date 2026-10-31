@@ -9,7 +9,9 @@ pub mod data;
 pub mod server;
 pub mod session;
 pub mod tls;
+pub mod transcript;
 
 pub use server::{BodyInfo, Ingest, Server, ServerOptions};
 pub use session::{RecipientPolicy, SessionConfig, SmtpAuth};
 pub use spoolbox_core::chaos::{Chaos, Triggers as ChaosTriggers};
+pub use transcript::{Transcript, TranscriptLine, Transcripts};

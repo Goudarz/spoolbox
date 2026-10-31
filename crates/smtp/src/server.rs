@@ -17,6 +17,7 @@ use tokio_rustls::server::TlsStream;
 
 use crate::data::DataDecoder;
 use crate::session::{DataOutcome, Next, Session, SessionConfig};
+use crate::transcript::{Recorder, Transcripts};
 
 /// Facts about a received body, passed to [`Ingest::commit`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +54,8 @@ pub struct ServerOptions {
     pub max_line: usize,
     /// TLS from the first byte (port 465 style) instead of STARTTLS.
     pub implicit_tls: bool,
+    /// Record conversations (`--smtp-transcripts`).
+    pub transcripts: Option<Arc<Transcripts>>,
 }
 
 impl Default for ServerOptions {
@@ -63,6 +66,7 @@ impl Default for ServerOptions {
             data_timeout: Duration::from_secs(600),
             max_line: 2048,
             implicit_tls: false,
+            transcripts: None,
         }
     }
 }
@@ -155,8 +159,15 @@ impl<I: Ingest> Server<I> {
             Conn::Plain(tcp)
         };
         let mut io = BufReader::new(conn);
+        let mut rec = match &self.opts.transcripts {
+            Some(t) => t.recorder(peer.to_string()),
+            None => Recorder::disabled(),
+        };
+        if let Some(v) = &tls_version {
+            rec.note(&format!("implicit TLS ({v})"));
+        }
         let mut session = Session::new(self.session.clone(), peer.ip().to_string(), tls_version);
-        send(&mut io, &session.banner()).await?;
+        say(&mut io, &mut rec, &session.banner()).await?;
 
         loop {
             let line = match tokio::time::timeout(
@@ -166,18 +177,20 @@ impl<I: Ingest> Server<I> {
             .await
             {
                 Err(_) => {
-                    let _ = send(&mut io, &session.timeout_reply()).await;
+                    let _ = say(&mut io, &mut rec, &session.timeout_reply()).await;
                     return Ok(());
                 }
                 Ok(Ok(Line::Eof)) => return Ok(()),
                 Ok(Ok(Line::TooLong)) => {
-                    send(&mut io, "500 5.5.2 Line too long").await?;
+                    rec.note("command line too long");
+                    say(&mut io, &mut rec, "500 5.5.2 Line too long").await?;
                     continue;
                 }
                 Ok(Ok(Line::Text(l))) => l,
                 Ok(Err(e)) => return Err(e),
             };
             log_command(&peer, &line);
+            rec.client(&line);
             let mut reply = session.handle(&line);
             loop {
                 if reply.code() == 535 {
@@ -185,7 +198,7 @@ impl<I: Ingest> Server<I> {
                 }
                 match reply.next {
                     Next::AuthContinue => {
-                        send(&mut io, &reply.text).await?;
+                        say(&mut io, &mut rec, &reply.text).await?;
                         let resp = match tokio::time::timeout(
                             self.opts.command_timeout,
                             read_line(&mut io, self.opts.max_line),
@@ -196,10 +209,11 @@ impl<I: Ingest> Server<I> {
                             Ok(Ok(Line::TooLong)) => String::new(),
                             Ok(Ok(Line::Eof)) | Ok(Err(_)) => return Ok(()),
                             Err(_) => {
-                                let _ = send(&mut io, &session.timeout_reply()).await;
+                                let _ = say(&mut io, &mut rec, &session.timeout_reply()).await;
                                 return Ok(());
                             }
                         };
+                        rec.client_secret();
                         reply = session.auth_response(&resp);
                     }
                     Next::ReadData => {
@@ -218,16 +232,28 @@ impl<I: Ingest> Server<I> {
                                 continue;
                             }
                         };
-                        send(&mut io, &reply.text).await?;
+                        say(&mut io, &mut rec, &reply.text).await?;
                         let Some(outcome) =
                             self.receive(&mut io, &session, envelope, writer).await?
                         else {
+                            rec.note("connection lost while receiving the message");
                             return Ok(());
                         };
+                        match &outcome {
+                            DataOutcome::Stored(id) => {
+                                rec.note("message received");
+                                rec.stored(id);
+                            }
+                            DataOutcome::Dropped => {
+                                rec.note("message received and discarded (recipient policy)")
+                            }
+                            DataOutcome::TooLarge => rec.note("message larger than the size limit"),
+                            DataOutcome::Rejected(_) => rec.note("message refused by storage"),
+                        }
                         reply = session.data_result(outcome);
                     }
                     Next::StartTls => {
-                        send(&mut io, &reply.text).await?;
+                        say(&mut io, &mut rec, &reply.text).await?;
                         if !io.buffer().is_empty() {
                             // RFC 3207 §5: commands pipelined before the handshake must be discarded
                             // (STARTTLS command injection).
@@ -253,19 +279,19 @@ impl<I: Ingest> Server<I> {
                             }
                             Err(_) => return Ok(()),
                         };
-                        session.tls_established(
-                            protocol_name(&stream).unwrap_or_else(|| "TLS".into()),
-                        );
+                        let version = protocol_name(&stream).unwrap_or_else(|| "TLS".into());
+                        rec.note(&format!("TLS established ({version})"));
+                        session.tls_established(version);
                         io = BufReader::new(Conn::Tls(Box::new(stream)));
                         break;
                     }
                     Next::Close => {
-                        send(&mut io, &reply.text).await?;
+                        say(&mut io, &mut rec, &reply.text).await?;
                         let _ = io.get_mut().shutdown().await;
                         return Ok(());
                     }
                     Next::Continue => {
-                        send(&mut io, &reply.text).await?;
+                        say(&mut io, &mut rec, &reply.text).await?;
                         break;
                     }
                 }
@@ -369,6 +395,11 @@ fn protocol_name(stream: &TlsStream<TcpStream>) -> Option<String> {
         rustls::ProtocolVersion::TLSv1_2 => "TLSv1.2".to_string(),
         other => format!("{other:?}"),
     })
+}
+
+async fn say(io: &mut BufReader<Conn>, rec: &mut Recorder, text: &str) -> io::Result<()> {
+    rec.server(text);
+    send(io, text).await
 }
 
 async fn send(io: &mut BufReader<Conn>, text: &str) -> io::Result<()> {

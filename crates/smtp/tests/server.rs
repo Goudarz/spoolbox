@@ -307,6 +307,59 @@ async fn auth_login_over_the_wire() {
     );
 }
 
+#[tokio::test]
+async fn transcripts_record_sessions_without_secrets() {
+    let mut cfg = SessionConfig::new("mx");
+    cfg.auth = spoolbox_smtp::SmtpAuth::AcceptAny;
+    let store = Arc::new(spoolbox_smtp::Transcripts::new(10));
+    let opts = ServerOptions {
+        transcripts: Some(store.clone()),
+        ..Default::default()
+    };
+    let srv = start(cfg, None, opts, MemIngest::default()).await;
+    let mut c = connect(&srv.addr).await;
+    c.cmd("EHLO c").await;
+    c.cmd("AUTH LOGIN").await;
+    c.cmd("dXNlcg==").await;
+    c.cmd("c2VjcmV0LXBhc3N3b3Jk").await;
+    c.cmd("MAIL FROM:<a@x>").await;
+    c.cmd("RCPT TO:<b@y>").await;
+    c.cmd("DATA").await;
+    c.send(b"Subject: a\r\n\r\ntop secret body\r\n.\r\n").await;
+    assert!(c.code().await.starts_with("250"));
+    c.cmd("QUIT").await;
+    drop(c);
+
+    let mut tries = 0;
+    let t = loop {
+        if let Some(t) = store.for_message("MSG1") {
+            break t;
+        }
+        tries += 1;
+        assert!(tries < 100, "transcript not stored");
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    };
+    let text: Vec<String> = t
+        .lines
+        .iter()
+        .map(|l| format!("{} {}", l.from, l.text))
+        .collect();
+    let all = text.join("\n");
+    assert!(all.starts_with("S 220 mx"), "{all}");
+    assert!(
+        all.contains("C MAIL FROM:<a@x>") && all.contains("* message received"),
+        "{all}"
+    );
+    assert!(
+        all.contains("C AUTH LOGIN [redacted]") && all.contains("C [redacted]"),
+        "{all}"
+    );
+    assert!(
+        !all.contains("c2VjcmV0") && !all.contains("dXNlcg") && !all.contains("top secret"),
+        "{all}"
+    );
+}
+
 // --- TLS ---
 
 fn test_tls() -> (Arc<rustls::ServerConfig>, rustls::RootCertStore) {

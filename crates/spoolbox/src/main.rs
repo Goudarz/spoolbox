@@ -296,7 +296,10 @@ async fn serve(s: &Settings) -> Result<(), String> {
         session,
         tls.map(|t| t.config),
         core.ingest.clone(),
-        spoolbox_app::server_options(s),
+        spoolbox_smtp::ServerOptions {
+            transcripts: core.transcripts.clone(),
+            ..spoolbox_app::server_options(s)
+        },
     );
     let smtp_task = tokio::spawn(smtp.run(smtp_listener, stop_rx.clone()));
     let index_task = tokio::spawn(core.indexer.clone().run(stop_rx.clone()));
@@ -338,6 +341,7 @@ async fn serve(s: &Settings) -> Result<(), String> {
             block_remote_css_and_fonts: s.http.block_remote_css_and_fonts,
         },
     );
+    let api = api.with_transcripts(core.transcripts.clone());
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);

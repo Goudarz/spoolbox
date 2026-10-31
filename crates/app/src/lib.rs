@@ -129,6 +129,8 @@ pub struct Core {
     pub indexer: Indexer,
     /// Shared by SMTP sessions and `/api/v1/chaos`; `None` unless `--enable-chaos`.
     pub chaos: Option<Arc<spoolbox_core::chaos::Chaos>>,
+    /// Recent SMTP sessions; `None` unless `--smtp-transcripts`.
+    pub transcripts: Option<Arc<spoolbox_smtp::Transcripts>>,
 }
 
 impl Core {
@@ -148,11 +150,16 @@ impl Core {
             .chaos
             .enabled
             .then(|| Arc::new(spoolbox_core::chaos::Chaos::new(s.chaos.triggers)));
+        let transcripts = s
+            .smtp
+            .transcripts
+            .then(|| Arc::new(spoolbox_smtp::Transcripts::new(200)));
         Ok(Self {
             store,
             ingest,
             indexer,
             chaos,
+            transcripts,
         })
     }
 }

@@ -62,6 +62,7 @@ pub enum Key {
     UiTlsKey,
     HideDeleteAllButton,
     BlockRemoteCssAndFonts,
+    SmtpTranscripts,
 }
 
 impl Key {
@@ -87,6 +88,7 @@ impl Key {
                 | Key::EnableChaos
                 | Key::HideDeleteAllButton
                 | Key::BlockRemoteCssAndFonts
+                | Key::SmtpTranscripts
         )
     }
 }
@@ -328,7 +330,8 @@ impl Builder {
             | Key::DisableHttpCompression
             | Key::EnableChaos
             | Key::HideDeleteAllButton
-            | Key::BlockRemoteCssAndFonts => {
+            | Key::BlockRemoteCssAndFonts
+            | Key::SmtpTranscripts => {
                 let on = parse_bool(v).ok_or_else(|| invalid("expected true or false"))?;
                 match key {
                     Key::SmtpRequireStarttls => s.smtp.require_starttls = on,
@@ -346,6 +349,7 @@ impl Builder {
                     Key::EnableChaos => s.chaos.enabled |= on,
                     Key::HideDeleteAllButton => s.http.hide_delete_all_button = on,
                     Key::BlockRemoteCssAndFonts => s.http.block_remote_css_and_fonts = on,
+                    Key::SmtpTranscripts => s.smtp.transcripts = on,
                     _ => s.tags.username = on,
                 }
             }

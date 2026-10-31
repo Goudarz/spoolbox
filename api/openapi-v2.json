@@ -54,6 +54,39 @@
         "responses": { "200": { "description": "Position", "content": { "application/json": { "schema": { "type": "object", "required": ["seq"], "properties": { "seq": { "type": "integer", "format": "int64" } } } } } } }
       }
     },
+    "/api/v2/transcripts": {
+      "get": {
+        "summary": "Recent SMTP sessions",
+        "description": "Only with `--smtp-transcripts`. AUTH exchanges are redacted and message bodies are not recorded. The last 200 sessions are kept in memory.",
+        "operationId": "listTranscripts",
+        "tags": ["debugging"],
+        "x-spoolbox-phase": "P6",
+        "responses": {
+          "200": { "description": "Newest first", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "integer" }, "started_at": { "type": "string", "format": "date-time" }, "peer": { "type": "string" }, "lines": { "type": "integer" }, "message_ids": { "type": "array", "items": { "type": "string" } }, "truncated": { "type": "boolean" } } } } } } },
+          "404": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v2/transcripts/{id}": {
+      "get": {
+        "summary": "One SMTP session",
+        "operationId": "getTranscript",
+        "tags": ["debugging"],
+        "x-spoolbox-phase": "P6",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "$ref": "#/components/responses/Transcript" }, "404": { "$ref": "#/components/responses/Problem" } }
+      }
+    },
+    "/api/v2/messages/{id}/transcript": {
+      "get": {
+        "summary": "The SMTP session in which a message was received",
+        "operationId": "getMessageTranscript",
+        "tags": ["debugging"],
+        "x-spoolbox-phase": "P6",
+        "parameters": [{ "$ref": "#/components/parameters/MessageId" }],
+        "responses": { "200": { "$ref": "#/components/responses/Transcript" }, "404": { "$ref": "#/components/responses/Problem" } }
+      }
+    },
     "/api/v2/messages/{id}/envelope": {
       "get": {
         "summary": "SMTP envelope as received",
@@ -132,6 +165,7 @@
       "MessageId": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
     },
     "responses": {
+      "Transcript": { "description": "Transcript", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "integer" }, "started_at": { "type": "string", "format": "date-time" }, "peer": { "type": "string" }, "message_ids": { "type": "array", "items": { "type": "string" } }, "truncated": { "type": "boolean" }, "lines": { "type": "array", "items": { "type": "object", "properties": { "at_ms": { "type": "integer" }, "from": { "type": "string", "enum": ["C", "S", "*"] }, "text": { "type": "string" } } } } } } } } },
       "Problem": { "description": "Error", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
     },
     "schemas": {

@@ -27,6 +27,7 @@ fn run(args: &[&str], env: &[(&str, &str)]) -> Output {
 struct Server {
     child: Child,
     addr: String,
+    smtp: String,
 }
 
 impl Drop for Server {
@@ -58,12 +59,16 @@ fn start(extra: &[&str]) -> Server {
     let mut server = Server {
         child,
         addr: String::new(),
+        smtp: String::new(),
     };
     let mut lines = BufReader::new(stderr).lines();
     let deadline = Instant::now() + Duration::from_secs(20);
     while Instant::now() < deadline {
         let Some(Ok(line)) = lines.next() else { break };
         let v: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+        if v["fields"]["message"] == "SMTP listening" {
+            server.smtp = v["fields"]["addr"].as_str().expect("addr").to_string();
+        }
         if v["fields"]["message"] == "HTTP listening" {
             server.addr = v["fields"]["addr"].as_str().expect("addr").to_string();
             // Keep draining stderr so the child never blocks on a full pipe.
@@ -318,4 +323,57 @@ fn doctor_explains_port_problems() {
     let out = run(&["doctor", "--max", "lots"], &[]);
     assert_eq!(out.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&out.stdout).contains("[FAIL] config"));
+}
+
+/// Minimal HTTP GET for tests (the server answers with `Connection: close`).
+fn http_get(addr: &str, path: &str) -> (u16, String) {
+    use std::io::{Read, Write};
+    let mut s = std::net::TcpStream::connect(addr).expect("connect");
+    write!(
+        s,
+        "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    )
+    .expect("write");
+    let mut buf = String::new();
+    s.read_to_string(&mut buf).expect("read");
+    let status = buf
+        .split_whitespace()
+        .nth(1)
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(0);
+    let body = buf
+        .split_once("\r\n\r\n")
+        .map(|(_, b)| b.to_string())
+        .unwrap_or_default();
+    (status, body)
+}
+
+#[test]
+fn smtp_transcripts_are_opt_in() {
+    let off = start(&[]);
+    assert_eq!(http_get(&off.addr, "/api/v2/transcripts").0, 404);
+
+    let srv = start(&["--smtp-transcripts"]);
+    let sent = run(
+        &["send-sample", "--smtp", &srv.smtp, "--sample", "plain"],
+        &[],
+    );
+    assert!(
+        sent.status.success(),
+        "{}",
+        String::from_utf8_lossy(&sent.stderr)
+    );
+    let (status, body) = http_get(&srv.addr, "/api/v2/transcripts");
+    assert_eq!(status, 200, "{body}");
+    let list: serde_json::Value = serde_json::from_str(body.trim()).expect("json");
+    let id = list[0]["message_ids"][0]
+        .as_str()
+        .expect("message id")
+        .to_string();
+    let (status, body) = http_get(&srv.addr, &format!("/api/v2/messages/{id}/transcript"));
+    assert_eq!(status, 200, "{body}");
+    assert!(
+        body.contains("\"text\":\"MAIL FROM:") && body.contains("message received"),
+        "{body}"
+    );
 }

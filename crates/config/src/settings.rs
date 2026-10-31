@@ -76,6 +76,8 @@ pub struct SmtpSettings {
     pub auth: Option<Credentials>,
     /// Allow PLAIN/LOGIN without TLS.
     pub auth_allow_insecure: bool,
+    /// Keep redacted transcripts of recent sessions (`/api/v2/transcripts`).
+    pub transcripts: bool,
     /// Regular expression recipients must match (validated).
     pub allowed_recipients: Option<String>,
     pub ignore_rejected_recipients: bool,
@@ -185,6 +187,7 @@ impl Default for Settings {
                 auth_accept_any: false,
                 auth: None,
                 auth_allow_insecure: false,
+                transcripts: false,
                 allowed_recipients: None,
                 ignore_rejected_recipients: false,
                 strict_rfc_headers: false,

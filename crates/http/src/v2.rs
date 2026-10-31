@@ -30,6 +30,9 @@ pub(crate) fn routes() -> Router<Api> {
         .route("/api/v2/messages/{id}/mime", get(mime))
         .route("/api/v2/messages/{id}/links", get(links))
         .route("/api/v2/messages/{id}/codes", get(codes))
+        .route("/api/v2/messages/{id}/transcript", get(message_transcript))
+        .route("/api/v2/transcripts", get(transcripts))
+        .route("/api/v2/transcripts/{id}", get(transcript))
 }
 
 #[derive(Serialize)]
@@ -350,6 +353,104 @@ async fn import(State(api): State<Api>, req: axum::extract::Request) -> Response
         }
         Ok(Err(reply)) => problem(StatusCode::INTERNAL_SERVER_ERROR, reply),
         Err(_) => problem(StatusCode::INTERNAL_SERVER_ERROR, "internal error"),
+    }
+}
+
+#[derive(Serialize)]
+struct TranscriptSummary {
+    id: u64,
+    started_at: String,
+    peer: String,
+    lines: usize,
+    message_ids: Vec<String>,
+    truncated: bool,
+}
+
+#[derive(Serialize)]
+struct TranscriptLineJson {
+    at_ms: u64,
+    from: String,
+    text: String,
+}
+
+#[derive(Serialize)]
+struct TranscriptJson {
+    id: u64,
+    started_at: String,
+    peer: String,
+    message_ids: Vec<String>,
+    truncated: bool,
+    lines: Vec<TranscriptLineJson>,
+}
+
+fn transcript_json(t: &spoolbox_smtp::Transcript) -> TranscriptJson {
+    TranscriptJson {
+        id: t.id,
+        started_at: rfc3339(t.started_at.saturating_mul(1000)),
+        peer: t.peer.clone(),
+        message_ids: t.message_ids.clone(),
+        truncated: t.truncated,
+        lines: t
+            .lines
+            .iter()
+            .map(|l| TranscriptLineJson {
+                at_ms: l.at_ms,
+                from: l.from.to_string(),
+                text: l.text.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn transcripts_off() -> Response {
+    problem(
+        StatusCode::NOT_FOUND,
+        "SMTP transcripts are off; start the server with --smtp-transcripts",
+    )
+}
+
+async fn transcripts(State(api): State<Api>) -> Response {
+    let Some(store) = &api.0.transcripts else {
+        return transcripts_off();
+    };
+    let list: Vec<TranscriptSummary> = store
+        .list()
+        .iter()
+        .map(|t| TranscriptSummary {
+            id: t.id,
+            started_at: rfc3339(t.started_at.saturating_mul(1000)),
+            peer: t.peer.clone(),
+            lines: t.lines.len(),
+            message_ids: t.message_ids.clone(),
+            truncated: t.truncated,
+        })
+        .collect();
+    ok(&list)
+}
+
+async fn transcript(State(api): State<Api>, Path(id): Path<u64>) -> Response {
+    let Some(store) = &api.0.transcripts else {
+        return transcripts_off();
+    };
+    match store.get(id) {
+        Some(t) => ok(&transcript_json(&t)),
+        None => problem(
+            StatusCode::NOT_FOUND,
+            "no such transcript (only recent sessions are kept)",
+        ),
+    }
+}
+
+async fn message_transcript(State(api): State<Api>, Path(id): Path<String>) -> Response {
+    let Some(store) = &api.0.transcripts else {
+        return transcripts_off();
+    };
+    match store.for_message(&id) {
+        Some(t) => ok(&transcript_json(&t)),
+        None => problem(
+            StatusCode::NOT_FOUND,
+            "no transcript for this message (not received over SMTP, or no longer kept)",
+        ),
     }
 }
 

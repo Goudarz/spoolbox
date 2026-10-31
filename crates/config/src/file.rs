@@ -50,6 +50,7 @@ struct Smtp {
     auth_accept_any: Option<bool>,
     auth_file: Option<String>,
     auth_allow_insecure: Option<bool>,
+    transcripts: Option<bool>,
     allowed_recipients: Option<String>,
     ignore_rejected_recipients: Option<bool>,
     strict_rfc_headers: Option<bool>,
@@ -217,6 +218,11 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Vec<Assignment>, ConfigEr
         Key::SmtpAuthAllowInsecure,
         "smtp.auth_allow_insecure",
         flag(smtp.auth_allow_insecure),
+    );
+    push(
+        Key::SmtpTranscripts,
+        "smtp.transcripts",
+        flag(smtp.transcripts),
     );
     push(
         Key::SmtpAllowedRecipients,

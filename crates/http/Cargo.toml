@@ -15,6 +15,7 @@ spoolbox-auth.workspace = true
 spoolbox-core.workspace = true
 spoolbox-mime.workspace = true
 spoolbox-search.workspace = true
+spoolbox-smtp.workspace = true
 spoolbox-store.workspace = true
 axum.workspace = true
 base64.workspace = true

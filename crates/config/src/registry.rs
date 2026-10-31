@@ -210,6 +210,12 @@ pub const FLAGS: &[FlagSpec] = &[
         Active(Key::LogFormat),
     ),
     native(
+        "smtp-transcripts",
+        false,
+        "Keep redacted transcripts of the last 200 SMTP sessions (api/v2/transcripts)",
+        Active(Key::SmtpTranscripts),
+    ),
+    native(
         "allow-unauthenticated-network",
         false,
         "Allow binding to non-loopback interfaces without authentication",

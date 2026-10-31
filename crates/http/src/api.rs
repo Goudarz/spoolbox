@@ -39,6 +39,8 @@ pub(crate) struct Inner {
     pub started: Instant,
     /// Messages deleted through the API (`RuntimeStats.MessagesDeleted`).
     pub deleted: AtomicU64,
+    /// Recent SMTP sessions (`--smtp-transcripts`).
+    pub transcripts: Option<Arc<spoolbox_smtp::Transcripts>>,
     /// v1 WebSocket notifications (JSON text frames).
     pub ws: broadcast::Sender<Arc<str>>,
 }
@@ -58,8 +60,17 @@ impl Api {
             info,
             started: Instant::now(),
             deleted: AtomicU64::new(0),
+            transcripts: None,
             ws,
         }))
+    }
+
+    /// Enables `/api/v2/transcripts`. Call right after [`Api::new`].
+    pub fn with_transcripts(mut self, t: Option<Arc<spoolbox_smtp::Transcripts>>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.0) {
+            inner.transcripts = t;
+        }
+        self
     }
 
     pub fn store(&self) -> &Store {

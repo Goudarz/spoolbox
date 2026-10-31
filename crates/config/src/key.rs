@@ -66,6 +66,12 @@ pub enum Key {
     McpAllowDelete,
     Tag,
     TagsConfig,
+    WebhookUrl,
+    WebhookLimit,
+    WebhookDelay,
+    WebhookSecret,
+    AllowInternalHttpRequests,
+    AllowUntrustedTls,
 }
 
 impl Key {
@@ -93,6 +99,8 @@ impl Key {
                 | Key::BlockRemoteCssAndFonts
                 | Key::SmtpTranscripts
                 | Key::McpAllowDelete
+                | Key::AllowInternalHttpRequests
+                | Key::AllowUntrustedTls
         )
     }
 }
@@ -280,6 +288,29 @@ impl Builder {
             Key::UiTlsCert => self.ui_tls_cert = non_empty(v, origin),
             Key::UiTlsKey => self.ui_tls_key = non_empty(v, origin),
             Key::Tag => self.tag_spec = non_empty(v, origin),
+            Key::WebhookUrl => {
+                if v.is_empty() {
+                    s.webhook.url = None;
+                } else {
+                    let ok = (v.starts_with("http://") || v.starts_with("https://"))
+                        && v.split_once("://")
+                            .is_some_and(|(_, rest)| !rest.is_empty());
+                    if !ok {
+                        return Err(invalid("expected an http:// or https:// URL"));
+                    }
+                    s.webhook.url = Some(v.to_string());
+                }
+            }
+            Key::WebhookLimit => {
+                s.webhook.limit_per_second = v
+                    .parse()
+                    .map_err(|_| invalid("expected requests per second (0 = no limit)"))?
+            }
+            Key::WebhookDelay => {
+                let secs: u64 = v.parse().map_err(|_| invalid("expected seconds"))?;
+                s.webhook.delay = Duration::from_secs(secs);
+            }
+            Key::WebhookSecret => s.webhook.secret = (!v.is_empty()).then(|| v.to_string()),
             Key::TagsConfig => self.tags_config = non_empty(v, origin),
             Key::ChaosTriggers => {
                 if !v.is_empty() {
@@ -341,7 +372,9 @@ impl Builder {
             | Key::HideDeleteAllButton
             | Key::BlockRemoteCssAndFonts
             | Key::SmtpTranscripts
-            | Key::McpAllowDelete => {
+            | Key::McpAllowDelete
+            | Key::AllowInternalHttpRequests
+            | Key::AllowUntrustedTls => {
                 let on = parse_bool(v).ok_or_else(|| invalid("expected true or false"))?;
                 match key {
                     Key::SmtpRequireStarttls => s.smtp.require_starttls = on,
@@ -361,6 +394,8 @@ impl Builder {
                     Key::BlockRemoteCssAndFonts => s.http.block_remote_css_and_fonts = on,
                     Key::SmtpTranscripts => s.smtp.transcripts = on,
                     Key::McpAllowDelete => s.http.mcp_allow_delete = on,
+                    Key::AllowInternalHttpRequests => s.egress.allow_internal = on,
+                    Key::AllowUntrustedTls => s.egress.allow_untrusted_tls = on,
                     _ => s.tags.username = on,
                 }
             }

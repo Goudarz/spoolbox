@@ -17,8 +17,9 @@ use std::path::PathBuf;
 pub use error::{ConfigError, Diagnostic, DiagnosticLevel, Origin};
 pub use key::Key;
 pub use settings::{
-    ChaosSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat, LogLevel, LogSettings, MIB,
-    NetworkSettings, Settings, SmtpSettings, StorageSettings, TagRule, TagSettings, TlsSource,
+    ChaosSettings, EgressSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat, LogLevel,
+    LogSettings, MIB, NetworkSettings, Settings, SmtpSettings, StorageSettings, TagRule,
+    TagSettings, TlsSource, WebhookSettings,
 };
 
 use key::{AuthSources, Builder, parse_compat_bool};

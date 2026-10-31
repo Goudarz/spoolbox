@@ -121,13 +121,13 @@ fn security_relevant_planned_options_refuse_to_start() {
 #[test]
 fn harmless_planned_options_warn() {
     let l = load_ok(Sources {
-        cli: cli(&[("webhook-url", Some("http://x"))]),
+        cli: cli(&[("enable-prometheus", Some("true"))]),
         env: env(&[("MP_SMTP_RELAY_PASSWORD", "s3cret")]),
     });
     let text: Vec<&str> = l.diagnostics.iter().map(|d| d.message.as_str()).collect();
     assert!(
         text.iter()
-            .any(|m| m.contains("--webhook-url") && m.contains("P7")),
+            .any(|m| m.contains("--enable-prometheus") && m.contains("P7")),
         "{text:?}"
     );
     assert!(
@@ -660,4 +660,37 @@ delay_ms = 1500
     })
     .expect_err("bad stage");
     assert!(err.to_string().contains("chaos.rules[0]"), "{err}");
+}
+
+#[test]
+fn webhook_options() {
+    let s = load_ok(Sources {
+        cli: cli(&[
+            ("webhook-url", Some("https://hooks.example.com/mail")),
+            ("webhook-delay", Some("2")),
+        ]),
+        env: env(&[
+            ("MP_WEBHOOK_LIMIT", "5"),
+            ("SPOOLBOX_WEBHOOK_SECRET", "s3cret-key"),
+        ]),
+    })
+    .settings;
+    assert_eq!(
+        s.webhook.url.as_deref(),
+        Some("https://hooks.example.com/mail")
+    );
+    assert_eq!(
+        (s.webhook.limit_per_second, s.webhook.delay),
+        (5, Duration::from_secs(2))
+    );
+    assert!(
+        !format!("{s:?}").contains("s3cret-key"),
+        "secret never printed"
+    );
+    let err = load(&Sources {
+        cli: cli(&[("webhook-url", Some("ftp://x"))]),
+        env: vec![],
+    })
+    .expect_err("scheme");
+    assert!(err.to_string().contains("http://"), "{err}");
 }

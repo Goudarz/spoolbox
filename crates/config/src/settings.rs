@@ -17,6 +17,38 @@ pub struct Settings {
     pub network: NetworkSettings,
     pub log: LogSettings,
     pub chaos: ChaosSettings,
+    pub webhook: WebhookSettings,
+    pub egress: EgressSettings,
+}
+
+/// POST a message summary for every new message.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct WebhookSettings {
+    pub url: Option<String>,
+    /// Requests per second; 0 = no limit. Excess requests wait (they are not dropped).
+    pub limit_per_second: u32,
+    /// Wait this long after a message arrives before notifying.
+    pub delay: Duration,
+    /// HMAC-SHA256 key for the `X-Spoolbox-Signature` header.
+    pub secret: Option<String>,
+}
+
+impl std::fmt::Debug for WebhookSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebhookSettings")
+            .field("url", &self.url)
+            .field("limit_per_second", &self.limit_per_second)
+            .field("delay", &self.delay)
+            .field("signed", &self.secret.is_some())
+            .finish()
+    }
+}
+
+/// Policy for requests to URLs found in messages (link check).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct EgressSettings {
+    pub allow_internal: bool,
+    pub allow_untrusted_tls: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -231,6 +263,8 @@ impl Default for Settings {
                 allow_unauthenticated_network: false,
             },
             chaos: ChaosSettings::default(),
+            webhook: WebhookSettings::default(),
+            egress: EgressSettings::default(),
             log: LogSettings {
                 level: LogLevel::Info,
                 format: LogFormat::Text,

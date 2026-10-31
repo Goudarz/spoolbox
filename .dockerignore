@@ -1,0 +1,10 @@
+target
+target-crash
+fuzz/target
+fuzz/corpus
+fuzz/artifacts
+.git
+web/node_modules
+*.db
+*.db-wal
+*.db-shm

@@ -1,0 +1,12 @@
+/target
+**/*.rs.bk
+/web/node_modules
+/web/dist
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+/target-crash
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts

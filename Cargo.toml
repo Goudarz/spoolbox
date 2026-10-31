@@ -1,0 +1,85 @@
+[workspace]
+resolver = "3"
+exclude = ["fuzz"]
+members = [
+    "crates/core",
+    "crates/config",
+    "crates/http",
+    "crates/testkit",
+    "crates/mime",
+    "crates/search",
+    "crates/auth",
+    "crates/smtp",
+    "crates/store",
+    "crates/app",
+    "crates/spoolbox",
+]
+
+[workspace.package]
+version = "0.1.0-dev"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Goudarz/spoolbox"
+publish = false
+
+[workspace.dependencies]
+spoolbox-core = { path = "crates/core" }
+spoolbox-config = { path = "crates/config" }
+spoolbox-http = { path = "crates/http" }
+spoolbox-testkit = { path = "crates/testkit" }
+
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "query", "ws"] }
+clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.152"
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", default-features = false }
+toml = { version = "1.1.8", default-features = false, features = ["parse", "serde", "std"] }
+tower = { version = "0.5.3", default-features = false, features = ["util"] }
+tower-http = { version = "0.7.1", default-features = false, features = ["limit", "set-header", "trace", "compression-gzip"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std", "ansi", "json"] }
+tempfile = "3.27.0"
+http-body-util = "0.1.5"
+spoolbox-mime = { path = "crates/mime" }
+mail-parser = { version = "0.11.9", default-features = false, features = ["full_encoding"] }
+md-5 = { version = "0.11.0", default-features = false }
+sha1 = { version = "0.11.0", default-features = false }
+sha2 = { version = "0.11.0", default-features = false }
+proptest = { version = "1.12.0", default-features = false, features = ["std"] }
+spoolbox-smtp = { path = "crates/smtp" }
+spoolbox-store = { path = "crates/store" }
+spoolbox-app = { path = "crates/app" }
+base64 = { version = "0.23.1", default-features = false, features = ["std"] }
+fs4 = { version = "1.1.0", default-features = false }
+getrandom = "0.4.3"
+rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring"] }
+regex = { version = "1.13.1", default-features = false, features = ["std", "perf", "unicode"] }
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled", "blob", "cache"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-pki-types = { version = "1.15.1", features = ["std"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12", "logging"] }
+zstd = { version = "0.14.3", default-features = false }
+spoolbox-search = { path = "crates/search" }
+spoolbox-auth = { path = "crates/auth" }
+jiff = "0.2.38"
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+mail-builder = { version = "1.0.0", default-features = false }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

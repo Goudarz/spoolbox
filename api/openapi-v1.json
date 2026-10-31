@@ -1,0 +1,1778 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Spoolbox API v1",
+    "version": "v1",
+    "description": "Stable API used by the web UI and test clients. JSON field names are PascalCase (list summaries use snake_case). Errors are `text/plain` with status 400 (send API: JSON `{\"Error\"}`). Prefix every path with --webroot when set.",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Prefix with --webroot when set"
+    }
+  ],
+  "security": [
+    {},
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/messages": {
+      "get": {
+        "operationId": "listMessages",
+        "summary": "List messages, newest first",
+        "tags": [
+          "messages"
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagesSummary"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            },
+            "description": "0 = no limit"
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only messages received before this date/time"
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Time zone for dates without offset (IANA name or +03:30)"
+          }
+        ]
+      },
+      "put": {
+        "operationId": "setReadStatus",
+        "summary": "Mark messages read or unread",
+        "tags": [
+          "messages"
+        ],
+        "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "description": "By IDs, by search, or (neither) every message.",
+        "parameters": [
+          {
+            "name": "tz",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRead"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMessages",
+        "summary": "Delete messages",
+        "tags": [
+          "messages"
+        ],
+        "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "description": "An empty body or empty `IDs` deletes every message; a body that is not valid JSON is rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteMessages"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Search messages",
+        "tags": [
+          "messages"
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of matching messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagesSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search query"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            },
+            "description": "0 = no limit"
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only messages received before this date/time"
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Time zone for dates without offset (IANA name or +03:30)"
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteSearch",
+        "summary": "Delete matching messages",
+        "tags": [
+          "messages"
+        ],
+        "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search query"
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}": {
+      "get": {
+        "operationId": "getMessage",
+        "summary": "Message summary and bodies (marks it read)",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "200": {
+            "description": "Message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "With `latest`: newest message matching this search"
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}/headers": {
+      "get": {
+        "operationId": "getHeaders",
+        "summary": "Message headers",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "200": {
+            "description": "Headers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Headers"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "With `latest`: newest message matching this search"
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}/raw": {
+      "get": {
+        "operationId": "getRaw",
+        "summary": "The message exactly as received",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw message",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "With `latest`: newest message matching this search"
+          },
+          {
+            "name": "dl",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "`1` to download as `{id}.eml`"
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}/part/{part}": {
+      "get": {
+        "operationId": "getPart",
+        "summary": "Decoded MIME part",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "200": {
+            "description": "Part content; HTML, XML and SVG are served as attachment/octet-stream",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "part",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MIME part number, e.g. `1.2`"
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}/part/{part}/thumb": {
+      "get": {
+        "operationId": "getThumbnail",
+        "summary": "180×120 JPEG thumbnail (white for non-images)",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "200": {
+            "description": "JPEG",
+            "content": {
+              "image/jpeg": {}
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID"
+          },
+          {
+            "name": "part",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MIME part number, e.g. `1.2`"
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}/release": {
+      "post": {
+        "operationId": "releaseMessage",
+        "summary": "Relay the message (not available yet)",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "To": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "To"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/message/{id}/html-check": {
+      "get": {
+        "operationId": "htmlCheck",
+        "summary": "HTML compatibility check (not available yet)",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          }
+        ]
+      }
+    },
+    "/api/v1/message/{id}/link-check": {
+      "get": {
+        "operationId": "linkCheck",
+        "summary": "Link check (not available yet)",
+        "tags": [
+          "message"
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          }
+        ]
+      }
+    },
+    "/api/v1/tags": {
+      "get": {
+        "operationId": "getTags",
+        "summary": "All tags",
+        "tags": [
+          "tags"
+        ],
+        "responses": {
+          "200": {
+            "description": "Tag names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setTags",
+        "summary": "Replace the tags of messages",
+        "tags": [
+          "tags"
+        ],
+        "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTags"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tags/{tag}": {
+      "put": {
+        "operationId": "renameTag",
+        "summary": "Rename a tag",
+        "tags": [
+          "tags"
+        ],
+        "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tag",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTag"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTag",
+        "summary": "Delete a tag",
+        "tags": [
+          "tags"
+        ],
+        "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tag",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/send": {
+      "post": {
+        "operationId": "sendMessage",
+        "summary": "Store a message built from JSON",
+        "tags": [
+          "send"
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credentials required"
+          },
+          "413": {
+            "description": "Too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Uses the send API credentials when configured, otherwise the web UI credentials.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/info": {
+      "get": {
+        "operationId": "appInfo",
+        "summary": "Instance information",
+        "tags": [
+          "application"
+        ],
+        "responses": {
+          "200": {
+            "description": "Information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppInformation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webui": {
+      "get": {
+        "operationId": "webUiConfig",
+        "summary": "Web UI configuration",
+        "tags": [
+          "application"
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebUIConfiguration"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chaos": {
+      "get": {
+        "operationId": "getChaos",
+        "summary": "Current chaos triggers",
+        "tags": [
+          "testing"
+        ],
+        "responses": {
+          "200": {
+            "description": "Triggers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChaosTriggers"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setChaos",
+        "summary": "Set chaos triggers (omitted ones are reset)",
+        "tags": [
+          "testing"
+        ],
+        "responses": {
+          "200": {
+            "description": "Triggers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChaosTriggers"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChaosTriggers"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/swagger.json": {
+      "get": {
+        "operationId": "openapi",
+        "summary": "This document",
+        "tags": [
+          "application"
+        ],
+        "responses": {
+          "200": {
+            "description": "OpenAPI document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/view/{id}.html": {
+      "get": {
+        "operationId": "viewHtml",
+        "summary": "HTML body for display (marks it read)",
+        "tags": [
+          "view"
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML with `cid:` links rewritten, served with a sandboxing CSP",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "With `latest`: newest message matching this search"
+          },
+          {
+            "name": "embed",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "`1`: links open in a new tab; the page posts its height to the parent"
+          }
+        ]
+      }
+    },
+    "/view/{id}.txt": {
+      "get": {
+        "operationId": "viewText",
+        "summary": "Text body (marks it read)",
+        "tags": [
+          "view"
+        ],
+        "responses": {
+          "200": {
+            "description": "Text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "With `latest`: newest message matching this search"
+          }
+        ]
+      }
+    },
+    "/api/events": {
+      "get": {
+        "operationId": "events",
+        "summary": "WebSocket notifications",
+        "tags": [
+          "events"
+        ],
+        "responses": {
+          "101": {
+            "description": "Switching protocols"
+          }
+        },
+        "description": "Text frames `{\"Type\", \"Data\"}`; types: `new` (MessageSummary), `update` (`{ID, Read}` or `{ID, Tags}`), `delete` (`{ID}`), `truncate`, `prune` (reload), `stats` (`{Total, Unread, Version}`)."
+      }
+    },
+    "/livez": {
+      "get": {
+        "operationId": "livez",
+        "summary": "Liveness",
+        "tags": [
+          "health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Alive"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readyz",
+        "summary": "Readiness",
+        "tags": [
+          "health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Ready"
+          },
+          "503": {
+            "description": "Starting or stopping"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    },
+    "schemas": {
+      "Address": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Address": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "Name",
+          "Address"
+        ]
+      },
+      "MessageSummary": {
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string"
+          },
+          "MessageID": {
+            "type": "string"
+          },
+          "Read": {
+            "type": "boolean"
+          },
+          "From": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "To": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            },
+            "description": "null when empty"
+          },
+          "Cc": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            },
+            "description": "null when empty"
+          },
+          "Bcc": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            },
+            "description": "Bcc header plus envelope recipients missing from To/Cc/Bcc; null when empty"
+          },
+          "ReplyTo": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            },
+            "description": "[] when empty in lists, null in search results"
+          },
+          "Subject": {
+            "type": "string"
+          },
+          "Created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Username": {
+            "type": "string"
+          },
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Size": {
+            "type": "integer",
+            "description": "Bytes of the message as received"
+          },
+          "Attachments": {
+            "type": "integer"
+          },
+          "Snippet": {
+            "type": "string"
+          }
+        }
+      },
+      "MessagesSummary": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "Messages in the mailbox"
+          },
+          "unread": {
+            "type": "integer",
+            "description": "Unread messages in the mailbox"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Entries in this page (legacy)"
+          },
+          "messages_count": {
+            "type": "integer",
+            "description": "List: all messages; search: matching messages"
+          },
+          "messages_unread": {
+            "type": "integer",
+            "description": "List: unread messages; search: matching unread messages"
+          },
+          "start": {
+            "type": "integer"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageSummary"
+            }
+          }
+        }
+      },
+      "Checksums": {
+        "type": "object",
+        "properties": {
+          "MD5": {
+            "type": "string"
+          },
+          "SHA1": {
+            "type": "string"
+          },
+          "SHA256": {
+            "type": "string"
+          }
+        }
+      },
+      "Attachment": {
+        "type": "object",
+        "properties": {
+          "PartID": {
+            "type": "string"
+          },
+          "FileName": {
+            "type": "string"
+          },
+          "ContentType": {
+            "type": "string"
+          },
+          "ContentID": {
+            "type": "string"
+          },
+          "Size": {
+            "type": "integer"
+          },
+          "Checksums": {
+            "$ref": "#/components/schemas/Checksums"
+          }
+        }
+      },
+      "ListUnsubscribe": {
+        "type": "object",
+        "properties": {
+          "Header": {
+            "type": "string"
+          },
+          "Links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Errors": {
+            "type": "string"
+          },
+          "HeaderPost": {
+            "type": "string"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string"
+          },
+          "MessageID": {
+            "type": "string"
+          },
+          "From": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "To": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "Cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "Bcc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "ReplyTo": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "ReturnPath": {
+            "type": "string",
+            "description": "Envelope sender, else the Return-Path header, else From"
+          },
+          "Subject": {
+            "type": "string"
+          },
+          "ListUnsubscribe": {
+            "$ref": "#/components/schemas/ListUnsubscribe"
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Username": {
+            "type": "string",
+            "description": "SMTP AUTH or HTTP Basic user name"
+          },
+          "Text": {
+            "type": "string"
+          },
+          "HTML": {
+            "type": "string",
+            "description": "As received; `cid:` links are rewritten only by /view/{id}.html"
+          },
+          "Size": {
+            "type": "integer"
+          },
+          "Inline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
+          "Attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          }
+        }
+      },
+      "Headers": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": "Header name (canonical form, e.g. `Message-Id`) to raw values, in order"
+      },
+      "SetRead": {
+        "type": "object",
+        "properties": {
+          "Read": {
+            "type": "boolean"
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Search": {
+            "type": "string",
+            "description": "Search query; not together with IDs"
+          }
+        }
+      },
+      "DeleteMessages": {
+        "type": "object",
+        "properties": {
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Empty or missing deletes every message"
+          }
+        }
+      },
+      "SetTags": {
+        "type": "object",
+        "properties": {
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Replaces the tags; empty removes all"
+          }
+        }
+      },
+      "RenameTag": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "Name"
+        ]
+      },
+      "SendAddress": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "Email": {
+                "type": "string"
+              },
+              "Name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "Email"
+            ]
+          },
+          {
+            "type": "string",
+            "description": "`a@b` or `Name <a@b>`"
+          }
+        ]
+      },
+      "SendAttachment": {
+        "type": "object",
+        "properties": {
+          "Content": {
+            "type": "string",
+            "description": "Base64, optionally as a data: URL"
+          },
+          "Filename": {
+            "type": "string"
+          },
+          "ContentType": {
+            "type": "string",
+            "description": "Detected when empty"
+          },
+          "ContentID": {
+            "type": "string",
+            "description": "Makes the attachment inline"
+          }
+        },
+        "required": [
+          "Content",
+          "Filename"
+        ]
+      },
+      "SendRequest": {
+        "type": "object",
+        "properties": {
+          "From": {
+            "$ref": "#/components/schemas/SendAddress"
+          },
+          "To": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendAddress"
+            }
+          },
+          "Cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendAddress"
+            }
+          },
+          "Bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ReplyTo": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendAddress"
+            }
+          },
+          "Subject": {
+            "type": "string"
+          },
+          "Text": {
+            "type": "string"
+          },
+          "HTML": {
+            "type": "string"
+          },
+          "Attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendAttachment"
+            }
+          },
+          "Headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Not allowed: To, From, Cc, Bcc, Reply-To, Date, Subject, Content-Type, Mime-Version (and X-Tags with Tags)"
+          },
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "From"
+        ]
+      },
+      "SendResponse": {
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string"
+          }
+        }
+      },
+      "SendError": {
+        "type": "object",
+        "properties": {
+          "Error": {
+            "type": "string"
+          }
+        }
+      },
+      "Trigger": {
+        "type": "object",
+        "properties": {
+          "ErrorCode": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "Probability": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "ChaosTriggers": {
+        "type": "object",
+        "properties": {
+          "Sender": {
+            "$ref": "#/components/schemas/Trigger"
+          },
+          "Recipient": {
+            "$ref": "#/components/schemas/Trigger"
+          },
+          "Authentication": {
+            "$ref": "#/components/schemas/Trigger"
+          }
+        }
+      },
+      "AppInformation": {
+        "type": "object",
+        "properties": {
+          "Version": {
+            "type": "string"
+          },
+          "LatestVersion": {
+            "type": "string",
+            "description": "Always `disabled`: no update check"
+          },
+          "Database": {
+            "type": "string"
+          },
+          "DatabaseSize": {
+            "type": "integer"
+          },
+          "Messages": {
+            "type": "integer"
+          },
+          "Unread": {
+            "type": "integer"
+          },
+          "Tags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "RuntimeStats": {
+            "type": "object",
+            "properties": {
+              "Uptime": {
+                "type": "integer"
+              },
+              "Memory": {
+                "type": "integer"
+              },
+              "MessagesDeleted": {
+                "type": "integer"
+              },
+              "SMTPAccepted": {
+                "type": "integer"
+              },
+              "SMTPAcceptedSize": {
+                "type": "integer"
+              },
+              "SMTPRejected": {
+                "type": "integer"
+              },
+              "SMTPIgnored": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "WebUIConfiguration": {
+        "type": "object",
+        "properties": {
+          "Label": {
+            "type": "string"
+          },
+          "MessageRelay": {
+            "type": "object",
+            "properties": {
+              "Enabled": {
+                "type": "boolean"
+              },
+              "SMTPServer": {
+                "type": "string"
+              },
+              "ReturnPath": {
+                "type": "string"
+              },
+              "AllowedRecipients": {
+                "type": "string"
+              },
+              "BlockedRecipients": {
+                "type": "string"
+              },
+              "OverrideFrom": {
+                "type": "string"
+              },
+              "PreserveMessageIDs": {
+                "type": "boolean"
+              },
+              "RecipientAllowlist": {
+                "type": "string"
+              }
+            }
+          },
+          "SpamAssassin": {
+            "type": "boolean"
+          },
+          "ChaosEnabled": {
+            "type": "boolean"
+          },
+          "DuplicatesIgnored": {
+            "type": "boolean"
+          },
+          "HideDeleteAllButton": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Spoolbox API v2 (preview)",
+    "version": "v2-preview",
+    "description": "Preview of the native Spoolbox API (ADR-010). MVP scope: wait, envelope, MIME tree, link and code extraction, event stream. Breaking changes are allowed until v1.0; the API will grow into a complete one in later releases. JSON uses snake_case; errors use RFC 9457 problem details.",
+    "license": { "name": "MIT OR Apache-2.0", "identifier": "MIT OR Apache-2.0" }
+  },
+  "servers": [{ "url": "/", "description": "Prefix with --webroot when set" }],
+  "security": [{}, { "basicAuth": [] }],
+  "paths": {
+    "/api/v2/wait": {
+      "post": {
+        "summary": "Wait for a matching message",
+        "description": "Long-polls until a message matching `query` arrives after `since_seq` (default: now), or until `timeout_ms` elapses.",
+        "operationId": "waitForMessage",
+        "tags": ["testing"],
+        "x-spoolbox-phase": "P4",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WaitRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "A matching message", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSummary" } } } },
+          "400": { "$ref": "#/components/responses/Problem" },
+          "408": { "description": "No matching message before the timeout", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+        }
+      }
+    },
+    "/api/v2/messages/{id}/envelope": {
+      "get": {
+        "summary": "SMTP envelope as received",
+        "operationId": "getEnvelope",
+        "tags": ["messages"],
+        "x-spoolbox-phase": "P4",
+        "parameters": [{ "$ref": "#/components/parameters/MessageId" }],
+        "responses": {
+          "200": { "description": "Envelope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+          "404": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v2/messages/{id}/mime": {
+      "get": {
+        "summary": "MIME tree",
+        "operationId": "getMimeTree",
+        "tags": ["messages"],
+        "x-spoolbox-phase": "P4",
+        "parameters": [{ "$ref": "#/components/parameters/MessageId" }],
+        "responses": {
+          "200": { "description": "Root part", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MimePart" } } } },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "409": { "description": "The message has not been indexed yet, or could not be parsed", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+        }
+      }
+    },
+    "/api/v2/messages/{id}/links": {
+      "get": {
+        "summary": "Links found in the HTML and text bodies",
+        "operationId": "getLinks",
+        "tags": ["extraction"],
+        "x-spoolbox-phase": "P4",
+        "parameters": [{ "$ref": "#/components/parameters/MessageId" }],
+        "responses": {
+          "200": { "description": "Links in document order, de-duplicated", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Link" } } } } },
+          "404": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v2/messages/{id}/codes": {
+      "get": {
+        "summary": "Verification codes (OTP) found in the message",
+        "operationId": "getCodes",
+        "tags": ["extraction"],
+        "x-spoolbox-phase": "P4",
+        "parameters": [
+          { "$ref": "#/components/parameters/MessageId" },
+          { "name": "pattern", "in": "query", "description": "Regular expression with one capture group; default matches 4-8 digit codes", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Codes in document order", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Code" } } } } },
+          "400": { "$ref": "#/components/responses/Problem" },
+          "404": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/api/v2/events": {
+      "get": {
+        "summary": "Server-sent event stream",
+        "description": "Ordered events. Reconnect with `since` (or the `Last-Event-ID` header) to resume without gaps; if the requested position is no longer retained the stream starts with a `resync` event.",
+        "operationId": "streamEvents",
+        "tags": ["events"],
+        "x-spoolbox-phase": "P4",
+        "parameters": [{ "name": "since", "in": "query", "schema": { "type": "integer", "format": "int64", "minimum": 0 } }],
+        "responses": {
+          "200": { "description": "SSE stream; each `data:` line is an Event", "content": { "text/event-stream": { "schema": { "$ref": "#/components/schemas/Event" } } } },
+          "400": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "basicAuth": { "type": "http", "scheme": "basic" } },
+    "parameters": {
+      "MessageId": { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+    },
+    "responses": {
+      "Problem": { "description": "Error", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "description": "RFC 9457 problem details",
+        "required": ["type", "title", "status"],
+        "properties": {
+          "type": { "type": "string", "format": "uri-reference" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "required": ["address"],
+        "properties": { "name": { "type": "string" }, "address": { "type": "string" } }
+      },
+      "WaitRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": { "type": "string", "description": "Search query (same syntax as /api/v1/search)" },
+          "timeout_ms": { "type": "integer", "minimum": 0, "maximum": 300000, "default": 10000 },
+          "since_seq": { "type": "integer", "format": "int64", "description": "Only consider messages after this event sequence number" }
+        }
+      },
+      "MessageSummary": {
+        "type": "object",
+        "required": ["id", "seq", "received_at", "subject", "from", "to"],
+        "properties": {
+          "id": { "type": "string" },
+          "seq": { "type": "integer", "format": "int64" },
+          "received_at": { "type": "string", "format": "date-time" },
+          "subject": { "type": "string" },
+          "from": { "$ref": "#/components/schemas/Address" },
+          "to": { "type": "array", "items": { "$ref": "#/components/schemas/Address" } },
+          "size": { "type": "integer" },
+          "attachments": { "type": "integer" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "Envelope": {
+        "type": "object",
+        "required": ["mail_from", "rcpt_to"],
+        "properties": {
+          "mail_from": { "type": "string", "description": "Reverse-path; empty string for <>" },
+          "mail_params": { "type": "object", "additionalProperties": { "type": "string" } },
+          "rcpt_to": { "type": "array", "items": { "type": "string" } },
+          "helo": { "type": "string" },
+          "remote_ip": { "type": "string" },
+          "tls": { "type": ["string", "null"], "description": "TLS protocol version, null if plaintext" },
+          "auth_user": { "type": ["string", "null"] },
+          "source": { "type": "string", "enum": ["smtp", "send_api", "import"] }
+        }
+      },
+      "MimePart": {
+        "type": "object",
+        "required": ["part_id", "content_type", "size"],
+        "properties": {
+          "part_id": { "type": "string", "examples": ["1.2"] },
+          "content_type": { "type": "string" },
+          "charset": { "type": ["string", "null"] },
+          "disposition": { "type": ["string", "null"] },
+          "filename": { "type": ["string", "null"] },
+          "content_id": { "type": ["string", "null"] },
+          "content_language": { "type": ["string", "null"] },
+          "transfer_encoding": { "type": ["string", "null"] },
+          "size": { "type": "integer" },
+          "children": { "type": "array", "items": { "$ref": "#/components/schemas/MimePart" } }
+        }
+      },
+      "Link": {
+        "type": "object",
+        "required": ["url", "source"],
+        "properties": {
+          "url": { "type": "string" },
+          "text": { "type": ["string", "null"] },
+          "source": { "type": "string", "enum": ["html_a", "html_img", "html_css", "text"] },
+          "tracking_pixel": { "type": "boolean" }
+        }
+      },
+      "Code": {
+        "type": "object",
+        "required": ["value", "source"],
+        "properties": { "value": { "type": "string" }, "source": { "type": "string", "enum": ["subject", "text", "html"] } }
+      },
+      "Event": {
+        "type": "object",
+        "required": ["seq", "type"],
+        "properties": {
+          "seq": { "type": "integer", "format": "int64" },
+          "type": { "type": "string", "enum": ["message.received", "message.updated", "message.deleted", "mailbox.truncated", "tags.changed", "messages.updated", "resync"], "description": "`tags.changed` and `messages.updated` affect several messages (tag rename/delete, mark all read): reload." },
+          "message_id": { "type": ["string", "null"] },
+          "data": { "type": "object" }
+        }
+      }
+    }
+  }
+}

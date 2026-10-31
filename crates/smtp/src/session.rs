@@ -11,7 +11,7 @@ use spoolbox_auth::Credentials;
 use spoolbox_core::Envelope;
 
 use crate::command::{self, Command, PathError};
-use spoolbox_core::chaos::{Chaos, Stage};
+use spoolbox_core::chaos::{Chaos, RuleStage};
 
 #[derive(Debug, Clone, Default)]
 pub struct RecipientPolicy {
@@ -53,7 +53,7 @@ pub struct SessionConfig {
     /// Upper-case extension keywords not advertised in EHLO (and refused when used).
     pub hidden_extensions: HashSet<String>,
     pub recipients: RecipientPolicy,
-    /// Random failures for MAIL/RCPT/AUTH (`--enable-chaos`).
+    /// Chaos rules and random failures (`--enable-chaos`).
     pub chaos: Option<Arc<Chaos>>,
 }
 
@@ -76,10 +76,6 @@ impl SessionConfig {
     fn offers(&self, ext: &str) -> bool {
         !self.hidden_extensions.contains(ext)
     }
-
-    fn chaos(&self, stage: Stage) -> Option<Reply> {
-        self.chaos.as_ref()?.fire(stage).map(Reply::line)
-    }
 }
 
 /// What the connection driver must do after sending the reply.
@@ -93,6 +89,8 @@ pub enum Next {
     /// Read one more line and pass it to [`Session::auth_response`].
     AuthContinue,
     Close,
+    /// Close the connection without sending the reply (chaos `disconnect`).
+    Drop,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,6 +158,8 @@ pub struct Session {
     params: Vec<(String, Option<String>)>,
     rcpts: Vec<String>,
     dropped: usize,
+    /// Delay requested by a chaos rule, applied by the server before the next reply.
+    pause: std::time::Duration,
 }
 
 impl Session {
@@ -176,6 +176,7 @@ impl Session {
             params: Vec::new(),
             rcpts: Vec::new(),
             dropped: 0,
+            pause: std::time::Duration::ZERO,
         }
     }
 
@@ -213,6 +214,34 @@ impl Session {
     /// True when the message must be acknowledged but not stored.
     pub fn all_recipients_dropped(&self) -> bool {
         self.rcpts.is_empty() && self.dropped > 0
+    }
+
+    /// Applies a chaos rule or trigger: a delay is kept for [`Session::take_pause`]; a reply
+    /// or a disconnect replaces the normal reply.
+    fn chaos(&mut self, stage: RuleStage, subject: &str) -> Option<Reply> {
+        let effect = self.cfg.chaos.as_ref()?.decide(stage, subject)?;
+        self.pause += effect.delay;
+        if effect.disconnect {
+            return Some(Reply::then("", Next::Drop));
+        }
+        effect.reply.map(Reply::line)
+    }
+
+    /// Chaos for a new connection, before the greeting.
+    pub fn connect_chaos(&mut self) -> Option<Reply> {
+        let ip = self.remote_ip.clone();
+        self.chaos(RuleStage::Connect, &ip)
+    }
+
+    /// Chaos after the body was received; the message is then not stored.
+    pub fn message_chaos(&mut self) -> Option<Reply> {
+        let from = self.from.clone();
+        self.chaos(RuleStage::Message, &from)
+    }
+
+    /// The delay to wait before sending the next reply.
+    pub fn take_pause(&mut self) -> std::time::Duration {
+        std::mem::take(&mut self.pause)
     }
 
     fn reset_transaction(&mut self) {
@@ -393,7 +422,7 @@ impl Session {
                 _ => {}
             }
         }
-        if let Some(r) = self.cfg.chaos(Stage::Sender) {
+        if let Some(r) = self.chaos(RuleStage::Sender, &path) {
             return r;
         }
         self.reset_transaction();
@@ -424,7 +453,7 @@ impl Session {
         if self.rcpts.len() + self.dropped >= self.cfg.max_recipients {
             return Reply::line("452 4.5.3 Too many recipients");
         }
-        if let Some(r) = self.cfg.chaos(Stage::Recipient) {
+        if let Some(r) = self.chaos(RuleStage::Recipient, &path) {
             return r;
         }
         match self.recipient_decision(&path) {
@@ -477,6 +506,10 @@ impl Session {
             return Reply::line(
                 "503 5.5.1 Bad sequence of commands (MAIL & RCPT required before DATA)",
             );
+        }
+        let from = self.from.clone();
+        if let Some(r) = self.chaos(RuleStage::Data, &from) {
+            return r;
         }
         Reply::then(
             "354 Start mail input; end with <CR><LF>.<CR><LF>",
@@ -531,7 +564,7 @@ impl Session {
         if !matches!(mechanism, "PLAIN" | "LOGIN") {
             return Reply::line("504 5.5.4 Unrecognized authentication type");
         }
-        if let Some(r) = self.cfg.chaos(Stage::Authentication) {
+        if let Some(r) = self.chaos(RuleStage::Auth, "") {
             return r;
         }
         match (mechanism, initial) {

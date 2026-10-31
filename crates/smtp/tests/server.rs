@@ -360,6 +360,88 @@ async fn transcripts_record_sessions_without_secrets() {
     );
 }
 
+#[tokio::test]
+async fn chaos_rules_are_deterministic() {
+    use spoolbox_core::chaos::{Chaos, Rule, RuleStage, Triggers};
+    let rule = |stage| Rule {
+        stage,
+        pattern: None,
+        code: None,
+        message: None,
+        delay_ms: 0,
+        disconnect: false,
+        times: None,
+    };
+    let chaos = Arc::new(Chaos::new(Triggers::default()));
+    chaos
+        .set_rules(vec![
+            Rule {
+                pattern: Some("@flaky\\.test$".into()),
+                code: Some(452),
+                message: Some("4.2.2 Mailbox full".into()),
+                ..rule(RuleStage::Recipient)
+            },
+            Rule {
+                code: Some(451),
+                message: Some("4.3.0 Try again".into()),
+                times: Some(1),
+                ..rule(RuleStage::Message)
+            },
+            Rule {
+                pattern: Some("^drop@".into()),
+                disconnect: true,
+                ..rule(RuleStage::Data)
+            },
+        ])
+        .expect("rules");
+    let mut cfg = SessionConfig::new("mx");
+    cfg.chaos = Some(chaos.clone());
+    let srv = start(cfg, None, ServerOptions::default(), MemIngest::default()).await;
+    let mut c = connect(&srv.addr).await;
+    c.cmd("EHLO c").await;
+    c.cmd("MAIL FROM:<a@x>").await;
+    assert_eq!(
+        c.cmd("RCPT TO:<b@flaky.test>").await,
+        "452 4.2.2 Mailbox full"
+    );
+    assert!(c.cmd("RCPT TO:<b@ok.test>").await.starts_with("250"));
+    c.cmd("DATA").await;
+    c.send(b"Subject: one\r\n\r\nbody\r\n.\r\n").await;
+    assert_eq!(
+        c.code().await,
+        "451 4.3.0 Try again",
+        "first message refused"
+    );
+    assert!(
+        srv.ingest.stored.lock().expect("lock").is_empty(),
+        "not stored"
+    );
+    // The rule fired once (`times: 1`); the retry succeeds on the same connection.
+    c.cmd("MAIL FROM:<a@x>").await;
+    c.cmd("RCPT TO:<b@ok.test>").await;
+    c.cmd("DATA").await;
+    c.send(b"Subject: two\r\n\r\nbody\r\n.\r\n").await;
+    assert!(c.code().await.starts_with("250"));
+    assert_eq!(srv.ingest.stored.lock().expect("lock").len(), 1);
+
+    let mut d = connect(&srv.addr).await;
+    d.cmd("EHLO c").await;
+    d.cmd("MAIL FROM:<drop@x>").await;
+    d.cmd("RCPT TO:<b@ok.test>").await;
+    d.send(b"DATA\r\n").await;
+    let mut rest = String::new();
+    let closed = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        tokio::io::AsyncReadExt::read_to_string(&mut d.io, &mut rest),
+    )
+    .await;
+    assert!(
+        closed.is_ok() && rest.is_empty(),
+        "closed without a reply: {rest:?}"
+    );
+    assert_eq!(chaos.rules()[1].1, 1);
+}
+
 // --- TLS ---
 
 fn test_tls() -> (Arc<rustls::ServerConfig>, rustls::RootCertStore) {

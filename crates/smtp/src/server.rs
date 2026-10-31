@@ -167,6 +167,16 @@ impl<I: Ingest> Server<I> {
             rec.note(&format!("implicit TLS ({v})"));
         }
         let mut session = Session::new(self.session.clone(), peer.ip().to_string(), tls_version);
+        if let Some(r) = session.connect_chaos() {
+            pause(&mut session, &mut rec).await;
+            if r.next != Next::Drop {
+                say(&mut io, &mut rec, &r.text).await?;
+            }
+            rec.note("chaos: connection closed");
+            let _ = io.get_mut().shutdown().await;
+            return Ok(());
+        }
+        pause(&mut session, &mut rec).await;
         say(&mut io, &mut rec, &session.banner()).await?;
 
         loop {
@@ -193,6 +203,7 @@ impl<I: Ingest> Server<I> {
             rec.client(&line);
             let mut reply = session.handle(&line);
             loop {
+                pause(&mut session, &mut rec).await;
                 if reply.code() == 535 {
                     tracing::warn!(%peer, "SMTP authentication failed");
                 }
@@ -217,6 +228,18 @@ impl<I: Ingest> Server<I> {
                         reply = session.auth_response(&resp);
                     }
                     Next::ReadData => {
+                        if let Some(chaos) = session.message_chaos() {
+                            say(&mut io, &mut rec, &reply.text).await?;
+                            if !self.discard(&mut io, &session).await? {
+                                return Ok(());
+                            }
+                            rec.note("chaos: message received and discarded");
+                            reply = match chaos.next {
+                                Next::Drop => chaos,
+                                _ => session.data_result(DataOutcome::Rejected(chaos.text)),
+                            };
+                            continue;
+                        }
                         let envelope = session.envelope();
                         let ingest = self.ingest.clone();
                         let begin = {
@@ -285,6 +308,11 @@ impl<I: Ingest> Server<I> {
                         io = BufReader::new(Conn::Tls(Box::new(stream)));
                         break;
                     }
+                    Next::Drop => {
+                        rec.note("chaos: connection closed without a reply");
+                        let _ = io.get_mut().shutdown().await;
+                        return Ok(());
+                    }
                     Next::Close => {
                         say(&mut io, &mut rec, &reply.text).await?;
                         let _ = io.get_mut().shutdown().await;
@@ -295,6 +323,28 @@ impl<I: Ingest> Server<I> {
                         break;
                     }
                 }
+            }
+        }
+    }
+
+    /// Reads a message body and throws it away. `false` = connection lost.
+    async fn discard(&self, io: &mut BufReader<Conn>, session: &Session) -> io::Result<bool> {
+        let mut decoder = DataDecoder::new(session.max_message_size());
+        let mut out = Vec::new();
+        loop {
+            let buf = match tokio::time::timeout(self.opts.data_timeout, io.fill_buf()).await {
+                Ok(Ok(b)) => b,
+                Ok(Err(e)) => return Err(e),
+                Err(_) => return Ok(false),
+            };
+            if buf.is_empty() {
+                return Ok(false);
+            }
+            let progress = decoder.feed(buf, &mut out);
+            io.consume(progress.consumed);
+            out.clear();
+            if progress.done {
+                return Ok(true);
             }
         }
     }
@@ -395,6 +445,15 @@ fn protocol_name(stream: &TlsStream<TcpStream>) -> Option<String> {
         rustls::ProtocolVersion::TLSv1_2 => "TLSv1.2".to_string(),
         other => format!("{other:?}"),
     })
+}
+
+/// Waits for a delay requested by a chaos rule.
+async fn pause(session: &mut Session, rec: &mut Recorder) {
+    let delay = session.take_pause();
+    if !delay.is_zero() {
+        rec.note(&format!("chaos: waiting {} ms", delay.as_millis()));
+        tokio::time::sleep(delay).await;
+    }
 }
 
 async fn say(io: &mut BufReader<Conn>, rec: &mut Recorder, text: &str) -> io::Result<()> {

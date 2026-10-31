@@ -29,7 +29,7 @@ spoolbox-config = { path = "crates/config" }
 spoolbox-http = { path = "crates/http" }
 spoolbox-testkit = { path = "crates/testkit" }
 
-axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "query", "ws"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "query", "ws", "original-uri"] }
 clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.152"

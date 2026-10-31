@@ -9,6 +9,7 @@ mod api;
 mod events;
 mod host;
 mod tls;
+mod ui;
 mod v1;
 mod v2;
 
@@ -21,7 +22,7 @@ use axum::Router;
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
 use axum::http::{HeaderName, HeaderValue, StatusCode, header};
 use axum::middleware;
-use axum::response::{Redirect, Response};
+use axum::response::Response;
 use axum::routing::get;
 use tower_http::compression::CompressionLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
@@ -92,6 +93,17 @@ pub fn router(opts: &HttpOptions, ready: Readiness, api: Api) -> Router {
         .route("/readyz", get(readyz))
         .with_state(ready);
 
+    let pages = Router::new()
+        .route("/", get(ui::page))
+        .route("/search", get(ui::page))
+        .route("/m/{id}", get(ui::page_with_id))
+        .with_state(opts.webroot.clone())
+        .route("/assets/{*path}", get(asset))
+        .route(
+            "/favicon.svg",
+            get(|| ui::file(Path("favicon.svg".to_string()))),
+        );
+
     let view = Router::new()
         .route("/view/{file}", get(view))
         .with_state(ViewState {
@@ -112,18 +124,27 @@ pub fn router(opts: &HttpOptions, ready: Readiness, api: Api) -> Router {
         .route("/api/events", get(events::websocket))
         .with_state(api)
         .merge(view)
+        .merge(pages)
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
-        .layer(middleware::from_fn_with_state(policy, access::guard));
+        .layer(middleware::from_fn_with_state(
+            policy.clone(),
+            access::guard,
+        ));
 
     let inner = health.merge(app);
     let root = if opts.webroot == "/" {
         inner
     } else {
+        // `/prefix` itself is answered by the UI page handler, which redirects to `/prefix/`.
         let prefix = opts.webroot.trim_end_matches('/').to_string();
-        let target = opts.webroot.clone();
         Router::new()
-            .route(&prefix, get(move || async move { Redirect::to(&target) }))
+            .route(
+                &opts.webroot,
+                get(ui::page)
+                    .with_state(opts.webroot.clone())
+                    .layer(middleware::from_fn_with_state(policy, access::guard)),
+            )
             .nest(&prefix, inner)
             .fallback(not_found)
     };
@@ -162,6 +183,15 @@ async fn readyz(State(ready): State<Readiness>) -> StatusCode {
 
 async fn not_found() -> Response {
     api::not_found()
+}
+
+async fn asset(Path(path): Path<String>) -> Response {
+    ui::file(Path(format!("assets/{path}"))).await
+}
+
+/// Whether the web UI was embedded at build time.
+pub fn ui_built() -> bool {
+    ui::is_built()
 }
 
 /// `/view/{id}.html` and `/view/{id}.txt` (`id` may be `latest`).

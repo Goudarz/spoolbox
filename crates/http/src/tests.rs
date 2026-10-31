@@ -195,3 +195,48 @@ async fn serves_https_and_rejects_plain_http() {
     tx.send(()).expect("stop");
     task.await.expect("join").expect("serve");
 }
+
+#[tokio::test]
+async fn ui_pages_get_a_base_href_and_a_strict_policy() {
+    for (root, path) in [
+        ("/", "/"),
+        ("/", "/m/abc"),
+        ("/", "/search"),
+        ("/mail/", "/mail/"),
+    ] {
+        let (s, h, body) = get(app(root, true), path, "localhost").await;
+        assert_eq!(s, StatusCode::OK, "{path}");
+        assert!(
+            body.contains(&format!("<base href=\"{root}\">")),
+            "{path}: {body}"
+        );
+        let csp = h[header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap_or_default();
+        assert!(
+            csp.contains("script-src 'self'") && !csp.contains("unsafe-eval"),
+            "{csp}"
+        );
+        assert_eq!(h[header::CACHE_CONTROL], "no-cache");
+    }
+    let (s, _, _) = get(app("/", true), "/assets/missing.js", "localhost").await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn ui_pages_require_credentials_when_configured() {
+    let r = Readiness::default();
+    r.set(true);
+    let (_core, api) = test_api(&spoolbox_config::Settings::default());
+    let mut opts = HttpOptions::new("/mail/");
+    opts.ui_auth = Some(std::sync::Arc::new(
+        spoolbox_auth::Credentials::parse("u:p").expect("creds"),
+    ));
+    let app = router(&opts, r, api);
+    for path in ["/mail/", "/mail/m/x", "/mail/api/v1/messages"] {
+        let (s, _, _) = get(app.clone(), path, "localhost").await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED, "{path}");
+    }
+    let (s, _, _) = get(app, "/mail/livez", "localhost").await;
+    assert_eq!(s, StatusCode::OK);
+}

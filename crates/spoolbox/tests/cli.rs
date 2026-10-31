@@ -377,3 +377,53 @@ fn smtp_transcripts_are_opt_in() {
         "{body}"
     );
 }
+
+fn mcp_session(addr: &str, input: &str) -> Vec<serde_json::Value> {
+    use std::io::Write;
+    let mut child = bin()
+        .args(["mcp", "--listen", addr])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn mcp");
+    child
+        .stdin
+        .take()
+        .expect("stdin")
+        .write_all(input.as_bytes())
+        .expect("write");
+    let out = child.wait_with_output().expect("output");
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| serde_json::from_str(l).expect("one JSON-RPC message per line"))
+        .collect()
+}
+
+#[test]
+fn mcp_over_stdio() {
+    let srv = start(&[]);
+    let input = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        "",
+    ]
+    .join("\n");
+    let replies = mcp_session(&srv.addr, &input);
+    assert_eq!(replies.len(), 2, "notifications get no reply: {replies:?}");
+    assert_eq!(replies[0]["result"]["serverInfo"]["name"], "spoolbox");
+    assert!(
+        replies[1]["result"]["tools"]
+            .as_array()
+            .is_some_and(|t| t.len() >= 7)
+    );
+
+    let down = free_port();
+    let replies = mcp_session(
+        &down,
+        "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"ping\"}\n",
+    );
+    assert_eq!(replies[0]["id"], 7);
+    assert_eq!(replies[0]["error"]["code"], -32603);
+}

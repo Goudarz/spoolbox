@@ -115,6 +115,10 @@ pub fn command() -> Command {
                 .arg(Arg::new("format").long("format").value_parser(["eml", "mbox"]).default_value("eml")),
         ))
         .subcommand(client_args(
+            Command::new("mcp")
+                .about("Model Context Protocol server on stdio, for AI assistants (connects to a running server's /mcp)"),
+        ))
+        .subcommand(client_args(
             Command::new("import")
                 .about("Load .eml files, directories of them, or mbox files into a running server")
                 .arg(Arg::new("paths").required(true).num_args(1..).value_name("PATH")),

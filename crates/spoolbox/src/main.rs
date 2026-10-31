@@ -41,6 +41,7 @@ fn main() -> ExitCode {
         Some(("wait", m)) => runtime.block_on(run_wait(m)),
         Some(("export", m)) => runtime.block_on(run_export(m)),
         Some(("import", m)) => runtime.block_on(run_import(m)),
+        Some(("mcp", m)) => runtime.block_on(run_mcp(m)),
         _ => runtime.block_on(run_server(cli::given_flags(&matches))),
     }
 }
@@ -201,6 +202,59 @@ async fn run_export(m: &clap::ArgMatches) -> ExitCode {
     }
 }
 
+/// Bridges newline-delimited JSON-RPC on stdin/stdout to the server's `/mcp` endpoint.
+async fn run_mcp(m: &clap::ArgMatches) -> ExitCode {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+    let client = match client_for(m) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
+    let mut out = tokio::io::stdout();
+    while let Ok(Some(line)) = lines.next_line().await {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let response = match client
+            .request(
+                "POST",
+                "mcp",
+                Some((line.clone().into_bytes(), "application/json")),
+            )
+            .await
+        {
+            Ok(r) if r.status == 202 => continue,
+            Ok(r) if r.ok() => r.text(),
+            Ok(r) => mcp_error(&line, &r.error()),
+            Err(e) => mcp_error(&line, &e),
+        };
+        if response.is_empty() {
+            continue;
+        }
+        let line = format!("{response}\n");
+        if out.write_all(line.as_bytes()).await.is_err() || out.flush().await.is_err() {
+            break;
+        }
+    }
+    ExitCode::SUCCESS
+}
+
+/// A JSON-RPC error for a request the server could not answer (notifications get none).
+fn mcp_error(request: &str, message: &str) -> String {
+    let id = serde_json::from_str::<serde_json::Value>(request)
+        .ok()
+        .and_then(|v| v.get("id").cloned());
+    match id {
+        Some(id) => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": { "code": -32603, "message": format!("Spoolbox is not reachable: {message}") }
+        })
+        .to_string(),
+        None => String::new(),
+    }
+}
+
 async fn run_import(m: &clap::ArgMatches) -> ExitCode {
     let client = match client_for(m) {
         Ok(c) => c,
@@ -341,7 +395,9 @@ async fn serve(s: &Settings) -> Result<(), String> {
             block_remote_css_and_fonts: s.http.block_remote_css_and_fonts,
         },
     );
-    let api = api.with_transcripts(core.transcripts.clone());
+    let api = api
+        .with_transcripts(core.transcripts.clone())
+        .with_mcp_delete(s.http.mcp_allow_delete);
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);

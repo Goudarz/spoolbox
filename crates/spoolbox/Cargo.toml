@@ -30,7 +30,7 @@ serde.workspace = true
 serde_json.workspace = true
 rustls-pki-types.workspace = true
 tokio-rustls.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util", "time", "signal"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util", "io-std", "time", "signal"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

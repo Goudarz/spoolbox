@@ -58,6 +58,8 @@ const en = {
   envelopeFrom: 'MAIL FROM',
   envelopeTo: 'RCPT TO',
   client: 'Client',
+  smtp: 'SMTP',
+  noTranscript: 'No transcript. Start the server with --smtp-transcripts to record SMTP sessions.',
 };
 
 type Dict = typeof en;
@@ -120,6 +122,8 @@ const fa: Dict = {
   envelopeFrom: 'MAIL FROM',
   envelopeTo: 'RCPT TO',
   client: 'کلاینت',
+  smtp: 'SMTP',
+  noTranscript: 'گفت‌وگوی SMTP ثبت نشده است. سرور را با --smtp-transcripts اجرا کنید.',
 };
 
 export const languages = { en: 'English', fa: 'فارسی' } as const;

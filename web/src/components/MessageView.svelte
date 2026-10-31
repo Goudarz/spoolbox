@@ -3,14 +3,14 @@
   import { drop, patch } from '../lib/mailbox.svelte';
   import { go } from '../lib/router.svelte';
   import { formatDate, formatSize, t } from '../lib/i18n.svelte';
-  import type { Address, Code, Envelope, Link, Message, MimePart } from '../lib/types';
+  import type { Address, Code, Envelope, Link, Message, MimePart, Transcript } from '../lib/types';
   import HtmlPreview from './HtmlPreview.svelte';
   import MimeTree from './MimeTree.svelte';
   import TagEditor from './TagEditor.svelte';
 
   let { id }: { id: string } = $props();
 
-  type Tab = 'html' | 'text' | 'headers' | 'raw' | 'structure' | 'attachments' | 'links' | 'envelope';
+  type Tab = 'html' | 'text' | 'headers' | 'raw' | 'structure' | 'attachments' | 'links' | 'envelope' | 'smtp';
   let msg: Message | undefined = $state();
   let error = $state('');
   let tab: Tab = $state('html');
@@ -20,12 +20,13 @@
   let links: Link[] | undefined = $state();
   let codes: Code[] | undefined = $state();
   let envelope: Envelope | undefined = $state();
+  let transcript: Transcript | null | undefined = $state();
   let copied = $state('');
 
   const parts = $derived(msg ? [...msg.Attachments, ...msg.Inline] : []);
   const pixels = $derived(links?.filter((l) => l.tracking_pixel).length ?? 0);
   const tabs = $derived(
-    (['html', 'text', 'headers', 'raw', 'structure', 'attachments', 'links', 'envelope'] as Tab[]).filter(
+    (['html', 'text', 'headers', 'raw', 'structure', 'attachments', 'links', 'envelope', 'smtp'] as Tab[]).filter(
       (x) => x !== 'attachments' || parts.length > 0,
     ),
   );
@@ -34,7 +35,7 @@
     const current = id;
     msg = undefined;
     error = '';
-    headers = raw = mime = links = codes = envelope = undefined;
+    headers = raw = mime = links = codes = envelope = transcript = undefined;
     api
       .message(current)
       .then((m) => {
@@ -57,6 +58,11 @@
     if (tab === 'structure' && !mime) void api.mime(current).then((m) => (mime = m)).catch(() => undefined);
     if (tab === 'links' && !codes) void api.codes(current).then((c) => (codes = c));
     if (tab === 'envelope' && !envelope) void api.envelope(current).then((e) => (envelope = e));
+    if (tab === 'smtp' && transcript === undefined)
+      void api
+        .transcript(current)
+        .then((x) => (transcript = x))
+        .catch(() => (transcript = null));
   });
 
   const label: Record<Tab, () => string> = {
@@ -68,6 +74,7 @@
     attachments: () => `${t('attachments')} (${parts.length})`,
     links: () => t('links'),
     envelope: () => t('envelope'),
+    smtp: () => t('smtp'),
   };
 
   const show = (list: Address[]) => list.map((a) => (a.Name ? `${a.Name} <${a.Address}>` : a.Address)).join(', ');
@@ -207,6 +214,14 @@
         {:else if links}
           <p class="muted">{t('noLinks')}</p>
         {/if}
+      {:else if tab === 'smtp'}
+        {#if transcript}
+          <p class="muted">{transcript.peer} · {formatDate(transcript.started_at)}</p>
+          <pre class="transcript" dir="ltr">{#each transcript.lines as l, i (i)}<span class="from-{l.from === '*' ? 'note' : l.from}">{l.from === '*' ? '# ' : `${l.from}: `}{l.text}</span>
+{/each}</pre>
+        {:else if transcript === null}
+          <p class="muted">{t('noTranscript')}</p>
+        {/if}
       {:else if tab === 'envelope'}
         {#if envelope}
           <dl class="head">
@@ -324,6 +339,13 @@
   .links,
   .codes {
     padding-inline-start: 1.1rem;
+  }
+  .transcript .from-C {
+    color: var(--accent);
+  }
+  .transcript .from-note {
+    color: var(--fg-muted);
+    font-style: italic;
   }
   .links li,
   .codes li {

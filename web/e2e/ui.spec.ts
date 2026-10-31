@@ -111,3 +111,14 @@ test('inbox and message view have no serious accessibility violations', async ({
     expect(serious.map((v) => `${v.id}: ${v.help}`), path).toEqual([]);
   }
 });
+
+test('the smtp conversation is shown with secrets redacted', async ({ page, request }) => {
+  await sendRaw('From: app@example.com\r\nTo: user@example.com\r\nSubject: Transcript check\r\n\r\nbody\r\n', 'app@example.com', ['user@example.com']);
+  const list = await (await request.get('api/v1/search?query=subject%3A%22transcript%20check%22')).json();
+  await page.goto(`m/${list.messages[0].ID}`);
+  await page.getByRole('tab', { name: 'SMTP' }).click();
+  const panel = page.getByRole('tabpanel');
+  await expect(panel).toContainText('C: MAIL FROM:<app@example.com>');
+  await expect(panel).toContainText('# message received');
+  await expect(panel).not.toContainText('body');
+});

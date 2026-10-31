@@ -6,6 +6,7 @@ import type {
   Message,
   MessagesPage,
   MimePart,
+  Transcript,
   Notification,
   WebUi,
 } from './types';
@@ -66,6 +67,8 @@ export const api = {
   mime: (id: string) => call<MimePart>('GET', `api/v2/messages/${encodeURIComponent(id)}/mime`),
   links: (id: string) => call<Link[]>('GET', `api/v2/messages/${encodeURIComponent(id)}/links`),
   codes: (id: string) => call<Code[]>('GET', `api/v2/messages/${encodeURIComponent(id)}/codes`),
+  transcript: (id: string) =>
+    call<Transcript>('GET', `api/v2/messages/${encodeURIComponent(id)}/transcript`),
 };
 
 export const partUrl = (id: string, part: string) =>

@@ -106,6 +106,15 @@ export interface Envelope {
   source: string;
 }
 
+export interface Transcript {
+  id: number;
+  started_at: string;
+  peer: string;
+  message_ids: string[];
+  truncated: boolean;
+  lines: { at_ms: number; from: 'C' | 'S' | '*'; text: string }[];
+}
+
 /** WebSocket notification from /api/events. */
 export type Notification =
   | { Type: 'new'; Data: Summary }

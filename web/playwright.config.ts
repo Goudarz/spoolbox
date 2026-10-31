@@ -18,7 +18,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: `"${bin}" --listen 127.0.0.1:${http} --smtp 127.0.0.1:${smtp} --max 0 --log-level warn`,
+    command: `"${bin}" --listen 127.0.0.1:${http} --smtp 127.0.0.1:${smtp} --max 0 --smtp-transcripts --log-level warn`,
     url: `http://127.0.0.1:${http}/readyz`,
     reuseExistingServer: false,
     timeout: 30_000,

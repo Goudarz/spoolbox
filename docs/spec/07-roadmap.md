@@ -92,6 +92,21 @@ flowchart LR
 
 **باقی‌مانده / عمداً بعدی:** UI TLS (`--ui-tls-cert/key`) و `readyz --https` هنوز با خطای صریح رد می‌شوند (نیاز به accept loop TLS برای axum؛ پیشنهاد: ابتدای P5)؛ `--use-message-dates` (هشدار)؛ html-check/link-check → `501` (P2 checks)؛ release → P7؛ تست سازگاری کلاینت WebSocket UI در P5. benchmarkهای Docker هنوز منتظر روشن‌شدن Docker هستند.
 
+### Phase 5 — وضعیت (2026-10-31): 🔄 در حال انجام
+
+تأیید مالک: «برو برای فاز ۵».
+
+| بخش | وضعیت |
+|---|---|
+| UI TLS (`--ui-tls-cert/key`، `auto`) + `readyz --https` | ✅ handshake در task جدا با timeout ۱۰ ثانیه (کلاینت ساکت بقیه را مسدود نمی‌کند)؛ تست HTTPS و رد HTTP ساده |
+| embed و سرو UI | ✅ `build.rs` محتوای `web/dist` را embed می‌کند؛ `<base href>` برای webroot؛ CSP سخت UI؛ cache ابدی برای `assets/`؛ صفحه راهنما در صورت نبود build؛ احراز هویت روی صفحه‌ها هم اعمال می‌شود |
+| flagها | ✅ `--hide-delete-all-button`، `--block-remote-css-and-fonts`؛ `remote=0` در `/view/{id}.html` تصاویر خارجی را مسدود می‌کند (P5-T08) |
+| UI (Svelte 5 + TS) | ✅ کد: inbox زنده (WebSocket با reconnect)، جست‌وجو، صفحه‌بندی، پیام با iframe `sandbox` بدون `allow-same-origin`، تب‌های text/headers/raw/ساختار MIME (P5-T07)/پیوست با thumbnail/لینک‌ها و کدها/envelope، tag دستی، حذف، خوانده/نخوانده، صفحه‌کلید، فارسی/RTL، حالت تاریک |
+| تست‌ها | ✅ نوشته‌شده: Playwright (inbox زنده، جست‌وجو و tag، صفحه‌کلید، مسدودسازی تصاویر بدون درخواست خارجی، RTL، axe بدون violation جدی) + corpus XSS (۱۲ مورد در `fixtures/xss/`)؛ job `web` در CI |
+| ⏳ اجرا | `npm ci`/build/`svelte-check`/Playwright هنوز اجرا نشده‌اند (نیاز به اجازه نصب بسته‌های npm)؛ `package-lock.json` پس از اولین `npm install` ساخته می‌شود |
+
+نسخه‌های npm با قاعده ۱۴ روز: svelte 5.57.2، vite 8.3.4، @sveltejs/vite-plugin-svelte 7.3.1، typescript 6.0.3 (svelte-check هنوز TS 7 را نمی‌پذیرد)، svelte-check 4.7.7، @playwright/test 1.64.1، @axe-core/playwright 4.14.0.
+
 ### Taskهای افزوده
 | Task | قابلیت | ورودی | خروجی | پذیرش |
 |---|---|---|---|---|

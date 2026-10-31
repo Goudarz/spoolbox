@@ -2,7 +2,7 @@
 // The application would normally send through a library such as nodemailer; this example
 // uses the send API so it has no dependencies.
 //
-//   node --test examples/node/
+//   node --test examples/node/signup.test.mjs
 //
 // Set SPOOLBOX_URL if the server does not listen on http://127.0.0.1:8025/.
 import { test } from 'node:test';

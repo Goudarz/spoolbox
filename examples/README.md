@@ -6,7 +6,7 @@ waits for it and checks its contents. All of them run in CI against a fresh serv
 | Example | Needs | Run |
 |---|---|---|
 | [Python](python/test_signup.py) | standard library | `python examples/python/test_signup.py` |
-| [Node.js](node/signup.test.mjs) | Node 22+, no packages | `node --test examples/node/` |
+| [Node.js](node/signup.test.mjs) | Node 22+, no packages | `node --test examples/node/signup.test.mjs` |
 | [Go](go/signup_test.go) | standard library | `cd examples/go && go test ./...` |
 | [Shell](shell/signup.sh) | `curl`, `spoolbox wait` | `sh examples/shell/signup.sh` |
 | [Rust, in-process](../crates/spoolbox/tests/testkit.rs) | `spoolbox-testkit` with feature `server` | `cargo test -p spoolbox --test testkit` |

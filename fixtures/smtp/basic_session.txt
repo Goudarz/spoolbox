@@ -1,0 +1,24 @@
+# One message: EHLO, MAIL, RCPT, DATA with dot-stuffing (RFC 5321 §4.5.2), QUIT.
+S: 220 *
+C: EHLO transcript.test
+S: 250 *
+S? SIZE
+S? 8BITMIME
+S? ENHANCEDSTATUSCODES
+C: MAIL FROM:<sender@example.com>
+S: 250 2.1.0 *
+C: RCPT TO:<rcpt@example.com>
+S: 250 2.1.5 *
+C: DATA
+S: 354 *
+C: From: sender@example.com
+C: To: rcpt@example.com
+C: Subject: transcript basic_session
+C:
+C: line one
+C: ..this line starts with a single dot after unstuffing
+C: .
+S: 250 2.0.0 *
+C: QUIT
+S: 221 *
+CLOSED

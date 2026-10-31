@@ -1,0 +1,32 @@
+# RSET aborts a transaction; a session can carry several messages; null reverse-path is valid.
+S: 220 *
+C: EHLO transcript.test
+S: 250 *
+C: MAIL FROM:<a@example.com>
+S: 250 *
+C: RCPT TO:<b@example.com>
+S: 250 *
+C: RSET
+S: 250 *
+C: DATA
+S: 503 *
+C: MAIL FROM:<>
+S: 250 *
+C: RCPT TO:<b@example.com>
+S: 250 *
+C: RCPT TO:<c@example.com>
+S: 250 *
+C: DATA
+S: 354 *
+C~ Subject: first\r\n\r\nbody\r\n.\r\n
+S: 250 *
+C: MAIL FROM:<a@example.com>
+S: 250 *
+C: RCPT TO:<d@example.com>
+S: 250 *
+C: DATA
+S: 354 *
+C~ Subject: second\r\n\r\nbody\r\n.\r\n
+S: 250 *
+C: QUIT
+S: 221 *

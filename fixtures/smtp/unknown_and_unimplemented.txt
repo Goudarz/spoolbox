@@ -1,0 +1,19 @@
+# 500 for unknown commands, 502 for VRFY/EXPN (RFC 5321 §4.2.4), NOOP always works,
+# syntax errors in MAIL FROM are 501 and keep the session usable.
+S: 220 *
+C: FOO bar
+S: 500 *
+C: NOOP
+S: 250 *
+C: EHLO transcript.test
+S: 250 *
+C: VRFY someone
+S: 502 *
+C: EXPN list
+S: 502 *
+C: MAIL FROM:no-brackets@example.com
+S: 501 *
+C: MAIL FROM:<ok@example.com>
+S: 250 *
+C: QUIT
+S: 221 *

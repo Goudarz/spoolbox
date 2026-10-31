@@ -1,0 +1,19 @@
+[package]
+name = "spoolbox-testkit"
+description = "Test helpers: SMTP transcript format and runner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "io-util", "time", "rt", "macros"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["net", "io-util", "time", "rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,16 @@
+# Commands out of order are rejected with 503 (RFC 5321 §4.1.4).
+S: 220 *
+C: MAIL FROM:<a@example.com>
+S: 503 5.5.1 *
+C: EHLO transcript.test
+S: 250 *
+C: RCPT TO:<b@example.com>
+S: 503 5.5.1 *
+C: DATA
+S: 503 5.5.1 *
+C: MAIL FROM:<a@example.com>
+S: 250 *
+C: DATA
+S: 503 5.5.1 *
+C: QUIT
+S: 221 *

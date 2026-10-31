@@ -1,0 +1,49 @@
+From: =?utf-8?b?2YHYsdmI2LTar9in2Ycg2YbZhdmI2YbZhw==?= <shop@example.ir>
+To: =?utf-8?b?2qnYp9ix2KjYsQ==?= <developer@example.com>
+Subject: =?utf-8?b?2LPZgdin2LHYtCDYtNmF2Kcg2KvYqNiqINi02K8g4pyF?=
+Date: Sat, 24 Oct 2026 12:01:00 +0000
+Message-ID: <sample-persian@spoolbox.local>
+X-Tags: sample, سفارش
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="REL"
+
+--REL
+Content-Type: multipart/alternative; boundary="ALT"
+
+--ALT
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+سلام! سفارش شما به شماره ۱۴۰۵-۰۰۴۲ ثبت شد.
+مبلغ: ۲٬۵۰۰٬۰۰۰ تومان
+
+--ALT
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<!doctype html>
+<html lang="fa" dir="rtl">
+<body style="font-family: Tahoma, sans-serif; background:#f6f6f6; padding:24px">
+  <table role="presentation" width="100%" style="max-width:560px; margin:auto; background:#fff; border-radius:8px">
+    <tr><td style="padding:24px; text-align:center"><img src="cid:logo@spoolbox" alt="لوگو" width="64" height="64"></td></tr>
+    <tr><td style="padding:0 24px 24px">
+      <h1 style="font-size:20px">سفارش شما ثبت شد ✅</h1>
+      <p>شماره سفارش: <b>۱۴۰۵-۰۰۴۲</b></p>
+      <p>مبلغ: <b>۲٬۵۰۰٬۰۰۰ تومان</b></p>
+      <p><a href="https://example.ir/orders/1405-0042" style="background:#0a7; color:#fff; padding:10px 16px; border-radius:4px; text-decoration:none">پیگیری سفارش</a></p>
+    </td></tr>
+  </table>
+</body>
+</html>
+
+--ALT--
+
+--REL
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <logo@spoolbox>
+Content-Disposition: inline; filename="logo.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+
+--REL--

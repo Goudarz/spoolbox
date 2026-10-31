@@ -1,0 +1,38 @@
+From: Reports <reports@example.com>
+To: developer@example.com
+Subject: Monthly report with attachments
+Date: Sat, 24 Oct 2026 12:02:00 +0000
+Message-ID: <sample-attachments@spoolbox.local>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="MIX"
+
+--MIX
+Content-Type: text/plain; charset=utf-8
+
+Three attachments: a PDF, a CSV and a text file with a Persian file name (RFC 2231).
+
+--MIX
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="report-2026-10.pdf"
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBv
+Ymo8PC9UeXBlL1BhZ2VzL0tpZHNbXS9Db3VudCAwPj5lbmRvYmoKdHJhaWxlcjw8L1Jvb3QgMSAw
+IFI+PgolJUVPRgo=
+
+--MIX
+Content-Type: text/csv; charset=utf-8; name="numbers.csv"
+Content-Disposition: attachment; filename="numbers.csv"
+
+month,orders,revenue
+2026-09,120,18400
+2026-10,134,20950
+
+--MIX
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename*=UTF-8''%DA%AF%D8%B2%D8%A7%D8%B1%D8%B4-%D9%85%D8%A7%D9%87%D8%A7%D9%86%D9%87.txt
+
+2q/Ystin2LHYtCDZhdin2YfYp9mG2Ycg2Kgg2LLYqNin2YYg2YHYp9ix2LPbjAo=
+
+--MIX--

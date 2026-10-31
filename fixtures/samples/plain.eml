@@ -1,0 +1,16 @@
+From: Spoolbox Samples <samples@spoolbox.local>
+To: Developer <developer@example.com>
+Subject: Plain text sample
+Date: Sat, 24 Oct 2026 12:00:00 +0000
+Message-ID: <sample-plain@spoolbox.local>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Hello!
+
+This is a plain-text message sent by `spoolbox send-sample`.
+.A line starting with a dot tests SMTP dot-stuffing.
+
+--
+Spoolbox

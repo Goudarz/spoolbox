@@ -1,0 +1,33 @@
+From: Newsletter <news@example.com>
+To: developer@example.com
+Subject: Multilingual alternative parts (en/fa)
+Date: Sat, 24 Oct 2026 12:03:00 +0000
+Message-ID: <sample-multilingual@spoolbox.local>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="ML"
+
+--ML
+Content-Type: text/plain; charset=utf-8
+Content-Language: en
+
+Hello in English.
+
+--ML
+Content-Type: text/plain; charset=utf-8
+Content-Language: fa
+
+سلام به فارسی.
+
+--ML
+Content-Type: text/html; charset=utf-8
+Content-Language: en
+
+<p>Hello in <b>English</b>.</p>
+
+--ML
+Content-Type: text/html; charset=utf-8
+Content-Language: fa
+
+<p dir="rtl">سلام به <b>فارسی</b>.</p>
+
+--ML--

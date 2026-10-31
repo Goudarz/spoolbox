@@ -1,0 +1,29 @@
+From: Acme Accounts <no-reply@acme.example>
+To: developer+signup@example.com
+Subject: Your verification code is 482913
+Date: Sat, 24 Oct 2026 12:04:00 +0000
+Message-ID: <sample-signup@spoolbox.local>
+List-Unsubscribe: <mailto:unsubscribe@acme.example>, <https://acme.example/unsubscribe?u=42>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="OTP"
+
+--OTP
+Content-Type: text/plain; charset=utf-8
+
+Welcome to Acme!
+
+Your verification code is 482913. It expires in 10 minutes.
+Or confirm your address: https://acme.example/verify?token=abc123
+
+--OTP
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<h1>Welcome to Acme!</h1>
+<p>Your verification code is <strong style="font-size:24px; letter-spacing:4px">482913</strong>.</p>
+<p><a href="https://acme.example/verify?token=abc123">Confirm your email address</a></p>
+<img src="https://tracking.acme.example/open.gif?u=42" width="1" height="1" alt="">
+</body></html>
+
+--OTP--

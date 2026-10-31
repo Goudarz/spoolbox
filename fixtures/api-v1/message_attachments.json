@@ -1,0 +1,69 @@
+{
+  "name": "message_attachments",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-attachments>",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "ID": "<ID:fixture-attachments>",
+    "MessageID": "att-1@fixtures.test",
+    "From": {
+      "Name": "",
+      "Address": "att@example.com"
+    },
+    "To": [
+      {
+        "Name": "",
+        "Address": "dave@example.com"
+      }
+    ],
+    "Cc": [],
+    "Bcc": [],
+    "ReplyTo": [],
+    "ReturnPath": "envelope@example.com",
+    "Subject": "fixture-attachments",
+    "ListUnsubscribe": {
+      "Header": "",
+      "Links": [],
+      "Errors": "",
+      "HeaderPost": ""
+    },
+    "Date": "<TIMESTAMP>",
+    "Tags": [],
+    "Username": "",
+    "Text": "see attached\n",
+    "HTML": "",
+    "Size": 780,
+    "Inline": [],
+    "Attachments": [
+      {
+        "PartID": "2",
+        "FileName": "evil.html",
+        "ContentType": "text/html",
+        "ContentID": "",
+        "Size": 25,
+        "Checksums": {
+          "MD5": "38fff51cb7248a06d6142c6bdf846831",
+          "SHA1": "d5f936942ce9128c48c06d488663b224e56f3df7",
+          "SHA256": "5c140d35dcb46a622e2cedf5ef5cc3638cdffd1c118c9331f8c84669f0b74783"
+        }
+      },
+      {
+        "PartID": "3",
+        "FileName": "pixel.png",
+        "ContentType": "image/png",
+        "ContentID": "",
+        "Size": 70,
+        "Checksums": {
+          "MD5": "2cd8bde463f5d82aae0f0cec061d6b8f",
+          "SHA1": "b2bbe763c7e1828c750d53f78550709a6fea19be",
+          "SHA256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77"
+        }
+      }
+    ]
+  }
+}

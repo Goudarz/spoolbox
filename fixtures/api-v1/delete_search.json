@@ -1,0 +1,12 @@
+{
+  "name": "delete_search",
+  "request": {
+    "method": "DELETE",
+    "path": "/api/v1/search?query=subject%3Afixture-send",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "ok"
+}

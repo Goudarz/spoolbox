@@ -1,0 +1,47 @@
+{
+  "name": "message_after_unicode_tags",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-plain>",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "ID": "<ID:fixture-plain>",
+    "MessageID": "plain-1@fixtures.test",
+    "From": {
+      "Name": "Plain Sender",
+      "Address": "plain@example.com"
+    },
+    "To": [
+      {
+        "Name": "",
+        "Address": "alice@example.com"
+      }
+    ],
+    "Cc": [],
+    "Bcc": [],
+    "ReplyTo": [],
+    "ReturnPath": "envelope@example.com",
+    "Subject": "fixture-plain",
+    "ListUnsubscribe": {
+      "Header": "",
+      "Links": [],
+      "Errors": "",
+      "HeaderPost": ""
+    },
+    "Date": "<TIMESTAMP>",
+    "Tags": [
+      "ascii-ok",
+      "فارسی"
+    ],
+    "Username": "",
+    "Text": "Hello plain text.\nVisit https://example.invalid/path?a=1\n\r\n",
+    "HTML": "",
+    "Size": 310,
+    "Inline": [],
+    "Attachments": []
+  }
+}

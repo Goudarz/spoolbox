@@ -1,0 +1,20 @@
+{
+  "name": "tags_set_unicode",
+  "request": {
+    "method": "PUT",
+    "path": "/api/v1/tags",
+    "body": {
+      "IDs": [
+        "01M69MWEZFNYFZGDB0F93G05QN"
+      ],
+      "Tags": [
+        "فارسی",
+        "ascii-ok"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "ok"
+}

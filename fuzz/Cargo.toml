@@ -1,0 +1,39 @@
+# Fuzz targets (cargo-fuzz, requires a nightly toolchain):
+#   cargo +nightly fuzz run smtp_session
+# Kept out of the main workspace so stable builds are unaffected.
+[package]
+name = "spoolbox-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+spoolbox-mime = { path = "../crates/mime" }
+spoolbox-smtp = { path = "../crates/smtp" }
+
+[workspace]
+
+[[bin]]
+name = "smtp_session"
+path = "fuzz_targets/smtp_session.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "data_decoder"
+path = "fuzz_targets/data_decoder.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mime_index"
+path = "fuzz_targets/mime_index.rs"
+test = false
+doc = false
+bench = false

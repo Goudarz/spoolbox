@@ -1,0 +1,13 @@
+{
+  "name": "thumb_att_3",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-attachments>/part/3/thumb",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "image/jpeg",
+  "content_disposition": "filename=\"pixel.jpg\"",
+  "body_sha256": "5c77b615c6eff0ae193157b891dcef2172023ad046692f4572ba41b391882c6a",
+  "body_len": 1249
+}

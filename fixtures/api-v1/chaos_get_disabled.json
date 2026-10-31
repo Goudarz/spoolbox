@@ -1,0 +1,12 @@
+{
+  "name": "chaos_get_disabled",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/chaos",
+    "body": null
+  },
+  "status": 400,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "Chaos is not enabled"
+}

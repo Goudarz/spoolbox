@@ -1,0 +1,28 @@
+{
+  "name": "webui",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/webui",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "Label": "",
+    "MessageRelay": {
+      "Enabled": false,
+      "SMTPServer": "",
+      "ReturnPath": "",
+      "AllowedRecipients": "",
+      "BlockedRecipients": "",
+      "OverrideFrom": "",
+      "PreserveMessageIDs": false,
+      "RecipientAllowlist": ""
+    },
+    "SpamAssassin": false,
+    "ChaosEnabled": false,
+    "DuplicatesIgnored": false,
+    "HideDeleteAllButton": false
+  }
+}

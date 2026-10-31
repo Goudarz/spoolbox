@@ -1,0 +1,12 @@
+{
+  "name": "view_html_embed",
+  "request": {
+    "method": "GET",
+    "path": "/view/<ID:fixture-html>.html?embed=1",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "<html><body dir=\"rtl\"><p>سلام <b>دنیا</b></p><img src=\"/api/v1/message/<ID:fixture-html>/part/1.2.2\"><a target=\"_blank\" rel=\"noreferrer noopener\" href=\"https://example.invalid/verify?code=482913\">verify</a><img src=\"https://example.invalid/pixel.gif\" width=\"1\" height=\"1\"><script nonce=\"<NONCE>\">if (typeof window.parent == \"object\") { window.addEventListener('load', function () { window.parent.postMessage({ messageHeight: document.body.scrollHeight }, \"*\") }) }</script></body></html>\n"
+}

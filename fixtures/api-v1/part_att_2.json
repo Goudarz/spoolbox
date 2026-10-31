@@ -1,0 +1,13 @@
+{
+  "name": "part_att_2",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-attachments>/part/2",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/octet-stream",
+  "content_disposition": "attachment; filename=\"evil.html\"",
+  "body_sha256": "5c140d35dcb46a622e2cedf5ef5cc3638cdffd1c118c9331f8c84669f0b74783",
+  "body_len": 25
+}

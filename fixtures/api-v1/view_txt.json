@@ -1,0 +1,12 @@
+{
+  "name": "view_txt",
+  "request": {
+    "method": "GET",
+    "path": "/view/<ID:fixture-html>.txt",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "متن ساده پیام. کد تأیید: 482913\n"
+}

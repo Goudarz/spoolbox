@@ -1,0 +1,12 @@
+{
+  "name": "tags_delete",
+  "request": {
+    "method": "DELETE",
+    "path": "/api/v1/tags/renamed",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "ok"
+}

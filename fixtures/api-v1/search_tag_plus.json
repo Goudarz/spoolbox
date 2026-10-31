@@ -1,0 +1,69 @@
+{
+  "name": "search_tag_plus",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/search?query=tag%3Asignup",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "total": 4,
+    "unread": 4,
+    "count": 1,
+    "messages_count": 1,
+    "messages_unread": 1,
+    "start": 0,
+    "tags": [
+      "Invoice",
+      "signup",
+      "urgent"
+    ],
+    "messages": [
+      {
+        "ID": "<ID:fixture-html>",
+        "MessageID": "html-1@fixtures.test",
+        "Read": false,
+        "From": {
+          "Name": "فرستنده آزمایشی",
+          "Address": "fa@example.com"
+        },
+        "To": [
+          {
+            "Name": "",
+            "Address": "bob+signup@example.com"
+          },
+          {
+            "Name": "کاربر",
+            "Address": "user@example.com"
+          }
+        ],
+        "Cc": [
+          {
+            "Name": "",
+            "Address": "carol@example.com"
+          }
+        ],
+        "Bcc": null,
+        "ReplyTo": [
+          {
+            "Name": "",
+            "Address": "reply@example.com"
+          }
+        ],
+        "Subject": "fixture-html سفارش شما ثبت شد",
+        "Created": "<TIMESTAMP>",
+        "Username": "",
+        "Tags": [
+          "Invoice",
+          "signup",
+          "urgent"
+        ],
+        "Size": 1815,
+        "Attachments": 2,
+        "Snippet": "سلام دنیا verify"
+      }
+    ]
+  }
+}

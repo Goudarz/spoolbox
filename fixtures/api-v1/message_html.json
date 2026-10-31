@@ -1,0 +1,90 @@
+{
+  "name": "message_html",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-html>",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "ID": "<ID:fixture-html>",
+    "MessageID": "html-1@fixtures.test",
+    "From": {
+      "Name": "فرستنده آزمایشی",
+      "Address": "fa@example.com"
+    },
+    "To": [
+      {
+        "Name": "",
+        "Address": "bob+signup@example.com"
+      },
+      {
+        "Name": "کاربر",
+        "Address": "user@example.com"
+      }
+    ],
+    "Cc": [
+      {
+        "Name": "",
+        "Address": "carol@example.com"
+      }
+    ],
+    "Bcc": [],
+    "ReplyTo": [
+      {
+        "Name": "",
+        "Address": "reply@example.com"
+      }
+    ],
+    "ReturnPath": "envelope@example.com",
+    "Subject": "fixture-html سفارش شما ثبت شد",
+    "ListUnsubscribe": {
+      "Header": "<mailto:unsub@example.com>, <https://example.invalid/unsub>",
+      "Links": [
+        "mailto:unsub@example.com",
+        "https://example.invalid/unsub"
+      ],
+      "Errors": "",
+      "HeaderPost": "List-Unsubscribe=One-Click"
+    },
+    "Date": "<TIMESTAMP>",
+    "Tags": [
+      "Invoice",
+      "signup",
+      "urgent"
+    ],
+    "Username": "",
+    "Text": "متن ساده پیام. کد تأیید: 482913\n",
+    "HTML": "<html><body dir=\"rtl\"><p>سلام <b>دنیا</b></p><img src=\"cid:logo1\"><a href=\"https://example.invalid/verify?code=482913\">verify</a><img src=\"https://example.invalid/pixel.gif\" width=\"1\" height=\"1\"></body></html>\n",
+    "Size": 1815,
+    "Inline": [],
+    "Attachments": [
+      {
+        "PartID": "2",
+        "FileName": "گزارش.txt",
+        "ContentType": "text/plain",
+        "ContentID": "",
+        "Size": 8,
+        "Checksums": {
+          "MD5": "78903c575b0dda53c4a7644a2dd36d0e",
+          "SHA1": "fa65ac7860c0f271adfbf80005f10a9c18918923",
+          "SHA256": "bda1fa48345336618741fd2c4bc02809eb099c49a9b02fb5056401ab6d4dc3e6"
+        }
+      },
+      {
+        "PartID": "1.2.2",
+        "FileName": "logo.png",
+        "ContentType": "image/png",
+        "ContentID": "logo1",
+        "Size": 70,
+        "Checksums": {
+          "MD5": "2cd8bde463f5d82aae0f0cec061d6b8f",
+          "SHA1": "b2bbe763c7e1828c750d53f78550709a6fea19be",
+          "SHA256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77"
+        }
+      }
+    ]
+  }
+}

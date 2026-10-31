@@ -1,0 +1,12 @@
+{
+  "name": "delete_invalid_json_body",
+  "request": {
+    "method": "DELETE",
+    "path": "/api/v1/messages",
+    "body": "{oops"
+  },
+  "status": 400,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "key must be a string at line 1 column 2"
+}

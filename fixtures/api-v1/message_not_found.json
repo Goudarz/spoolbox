@@ -1,0 +1,12 @@
+{
+  "name": "message_not_found",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/doesnotexist",
+    "body": null
+  },
+  "status": 404,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "404 page not found"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "read_status_both_error",
+  "request": {
+    "method": "PUT",
+    "path": "/api/v1/messages",
+    "body": {
+      "Read": true,
+      "IDs": [
+        "01M69MWEZQ9V4MMKEQFNNP9AJS"
+      ],
+      "Search": "x"
+    }
+  },
+  "status": 400,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "You may specify either IDs or a search query, not both"
+}

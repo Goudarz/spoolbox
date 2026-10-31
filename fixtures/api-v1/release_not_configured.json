@@ -1,0 +1,16 @@
+{
+  "name": "release_not_configured",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/message/<ID:fixture-plain>/release",
+    "body": {
+      "To": [
+        "x@example.com"
+      ]
+    }
+  },
+  "status": 400,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "message relay is not configured"
+}

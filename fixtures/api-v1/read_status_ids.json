@@ -1,0 +1,17 @@
+{
+  "name": "read_status_ids",
+  "request": {
+    "method": "PUT",
+    "path": "/api/v1/messages",
+    "body": {
+      "Read": false,
+      "IDs": [
+        "01M69MWEZQ9V4MMKEQFNNP9AJS"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "ok"
+}

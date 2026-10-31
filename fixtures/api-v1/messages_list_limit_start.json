@@ -1,0 +1,94 @@
+{
+  "name": "messages_list_limit_start",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/messages?start=1&limit=2",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "total": 4,
+    "unread": 4,
+    "count": 2,
+    "messages_count": 4,
+    "messages_unread": 4,
+    "start": 1,
+    "tags": [
+      "Invoice",
+      "signup",
+      "urgent"
+    ],
+    "messages": [
+      {
+        "ID": "<ID:fixture-attachments>",
+        "MessageID": "att-1@fixtures.test",
+        "Read": false,
+        "From": {
+          "Name": "",
+          "Address": "att@example.com"
+        },
+        "To": [
+          {
+            "Name": "",
+            "Address": "dave@example.com"
+          }
+        ],
+        "Cc": null,
+        "Bcc": null,
+        "ReplyTo": [],
+        "Subject": "fixture-attachments",
+        "Created": "<TIMESTAMP>",
+        "Username": "",
+        "Tags": [],
+        "Size": 780,
+        "Attachments": 2,
+        "Snippet": "see attached"
+      },
+      {
+        "ID": "<ID:fixture-html>",
+        "MessageID": "html-1@fixtures.test",
+        "Read": false,
+        "From": {
+          "Name": "فرستنده آزمایشی",
+          "Address": "fa@example.com"
+        },
+        "To": [
+          {
+            "Name": "",
+            "Address": "bob+signup@example.com"
+          },
+          {
+            "Name": "کاربر",
+            "Address": "user@example.com"
+          }
+        ],
+        "Cc": [
+          {
+            "Name": "",
+            "Address": "carol@example.com"
+          }
+        ],
+        "Bcc": null,
+        "ReplyTo": [
+          {
+            "Name": "",
+            "Address": "reply@example.com"
+          }
+        ],
+        "Subject": "fixture-html سفارش شما ثبت شد",
+        "Created": "<TIMESTAMP>",
+        "Username": "",
+        "Tags": [
+          "Invoice",
+          "signup",
+          "urgent"
+        ],
+        "Size": 1815,
+        "Attachments": 2,
+        "Snippet": "سلام دنیا verify"
+      }
+    ]
+  }
+}

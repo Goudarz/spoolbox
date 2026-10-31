@@ -1,0 +1,81 @@
+{
+  "name": "search_not_has_att",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/search?query=-has%3Aattachment",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "total": 4,
+    "unread": 4,
+    "count": 2,
+    "messages_count": 2,
+    "messages_unread": 2,
+    "start": 0,
+    "tags": [
+      "Invoice",
+      "signup",
+      "urgent"
+    ],
+    "messages": [
+      {
+        "ID": "<ID:fixture-no-msgid>",
+        "MessageID": "",
+        "Read": false,
+        "From": {
+          "Name": "",
+          "Address": "nomsgid@example.com"
+        },
+        "To": [
+          {
+            "Name": "",
+            "Address": "erin@example.com"
+          }
+        ],
+        "Cc": null,
+        "Bcc": [
+          {
+            "Name": "",
+            "Address": "hidden@example.com"
+          }
+        ],
+        "ReplyTo": null,
+        "Subject": "fixture-no-msgid",
+        "Created": "<TIMESTAMP>",
+        "Username": "",
+        "Tags": [],
+        "Size": 84,
+        "Attachments": 0,
+        "Snippet": "body"
+      },
+      {
+        "ID": "<ID:fixture-plain>",
+        "MessageID": "plain-1@fixtures.test",
+        "Read": false,
+        "From": {
+          "Name": "Plain Sender",
+          "Address": "plain@example.com"
+        },
+        "To": [
+          {
+            "Name": "",
+            "Address": "alice@example.com"
+          }
+        ],
+        "Cc": null,
+        "Bcc": null,
+        "ReplyTo": null,
+        "Subject": "fixture-plain",
+        "Created": "<TIMESTAMP>",
+        "Username": "",
+        "Tags": [],
+        "Size": 310,
+        "Attachments": 0,
+        "Snippet": "Hello plain text. Visit https://example.invalid/path?a=1"
+      }
+    ]
+  }
+}

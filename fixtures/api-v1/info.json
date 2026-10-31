@@ -1,0 +1,25 @@
+{
+  "name": "info",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/info",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "Version": "<VOLATILE>",
+    "LatestVersion": "disabled",
+    "Database": "<VOLATILE>",
+    "DatabaseSize": "<VOLATILE>",
+    "Messages": 4,
+    "Unread": 0,
+    "Tags": {
+      "Invoice": 1,
+      "signup": 1,
+      "urgent": 1
+    },
+    "RuntimeStats": "<VOLATILE>"
+  }
+}

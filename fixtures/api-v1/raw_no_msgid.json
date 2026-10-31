@@ -1,0 +1,12 @@
+{
+  "name": "raw_no_msgid",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-no-msgid>/raw",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "From: nomsgid@example.com\r\nTo: erin@example.com\r\nSubject: fixture-no-msgid\r\n\r\nbody\r\n"
+}

@@ -1,0 +1,35 @@
+{
+  "name": "send_api",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/send",
+    "body": {
+      "From": {
+        "Email": "api@example.com",
+        "Name": "API"
+      },
+      "To": [
+        {
+          "Email": "to@example.com"
+        }
+      ],
+      "Bcc": [
+        "bcc@example.com"
+      ],
+      "Subject": "fixture-send",
+      "Text": "hi",
+      "Tags": [
+        "sent"
+      ],
+      "Headers": {
+        "X-Test": "1"
+      }
+    }
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "ID": "<ID>"
+  }
+}

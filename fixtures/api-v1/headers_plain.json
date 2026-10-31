@@ -1,0 +1,37 @@
+{
+  "name": "headers_plain",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-plain>/headers",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "Content-Transfer-Encoding": [
+      "7bit"
+    ],
+    "Content-Type": [
+      "text/plain; charset=\"utf-8\""
+    ],
+    "Date": [
+      "Fri, 23 Oct 2026 10:00:00 +0000"
+    ],
+    "From": [
+      "Plain Sender <plain@example.com>"
+    ],
+    "Message-Id": [
+      "<plain-1@fixtures.test>"
+    ],
+    "Mime-Version": [
+      "1.0"
+    ],
+    "Subject": [
+      "fixture-plain"
+    ],
+    "To": [
+      "alice@example.com"
+    ]
+  }
+}

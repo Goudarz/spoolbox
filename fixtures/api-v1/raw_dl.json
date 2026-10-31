@@ -1,0 +1,12 @@
+{
+  "name": "raw_dl",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-plain>/raw?dl=1",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": "attachment; filename=\"<ID:fixture-plain>.eml\"",
+  "body_text": "From: Plain Sender <plain@example.com>\nTo: alice@example.com\nSubject: fixture-plain\nMessage-ID: <plain-1@fixtures.test>\nDate: Fri, 23 Oct 2026 10:00:00 +0000\nContent-Type: text/plain; charset=\"utf-8\"\nContent-Transfer-Encoding: 7bit\nMIME-Version: 1.0\n\nHello plain text.\nVisit https://example.invalid/path?a=1\n\r\n"
+}

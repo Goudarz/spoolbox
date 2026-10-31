@@ -1,0 +1,52 @@
+{
+  "name": "headers_html",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-html>/headers",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "Cc": [
+      "carol@example.com"
+    ],
+    "Content-Type": [
+      "multipart/mixed; boundary=\"==boundary-0==\""
+    ],
+    "Date": [
+      "Fri, 23 Oct 2026 10:01:00 +0000"
+    ],
+    "From": [
+      "=?utf-8?b?2YHYsdiz2KrZhtiv2Ycg2KLYstmF2KfbjNi024w=?= <fa@example.com>"
+    ],
+    "List-Unsubscribe": [
+      "<mailto:unsub@example.com>, <https://example.invalid/unsub>"
+    ],
+    "List-Unsubscribe-Post": [
+      "List-Unsubscribe=One-Click"
+    ],
+    "Message-Id": [
+      "<html-1@fixtures.test>"
+    ],
+    "Mime-Version": [
+      "1.0"
+    ],
+    "Reply-To": [
+      "reply@example.com"
+    ],
+    "Subject": [
+      "fixture-html =?utf-8?b?2LPZgdin2LHYtCDYtNmF2Kcg2KvYqNiqINi02K8=?="
+    ],
+    "To": [
+      "bob+signup@example.com, =?utf-8?b?2qnYp9ix2KjYsQ==?= <user@example.com>"
+    ],
+    "X-Custom-Id": [
+      "abc123"
+    ],
+    "X-Tags": [
+      "Invoice, urgent"
+    ]
+  }
+}

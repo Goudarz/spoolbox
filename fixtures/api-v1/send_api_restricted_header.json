@@ -1,0 +1,27 @@
+{
+  "name": "send_api_restricted_header",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/send",
+    "body": {
+      "From": {
+        "Email": "api@example.com"
+      },
+      "To": [
+        {
+          "Email": "to@example.com"
+        }
+      ],
+      "Subject": "x",
+      "Headers": {
+        "Subject": "override"
+      }
+    }
+  },
+  "status": 400,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "Error": "cannot overwrite header: \"Subject\""
+  }
+}

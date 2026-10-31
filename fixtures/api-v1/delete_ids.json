@@ -1,0 +1,16 @@
+{
+  "name": "delete_ids",
+  "request": {
+    "method": "DELETE",
+    "path": "/api/v1/messages",
+    "body": {
+      "IDs": [
+        "01M69MWF01CAC3P7MPBERW0N1H"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "ok"
+}

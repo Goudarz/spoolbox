@@ -1,0 +1,12 @@
+{
+  "name": "view_html_missing",
+  "request": {
+    "method": "GET",
+    "path": "/view/<ID:fixture-plain>.html",
+    "body": null
+  },
+  "status": 404,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "This message does not contain a HTML part"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "view_html",
+  "request": {
+    "method": "GET",
+    "path": "/view/<ID:fixture-html>.html",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "<html><body dir=\"rtl\"><p>سلام <b>دنیا</b></p><img src=\"/api/v1/message/<ID:fixture-html>/part/1.2.2\"><a href=\"https://example.invalid/verify?code=482913\">verify</a><img src=\"https://example.invalid/pixel.gif\" width=\"1\" height=\"1\"></body></html>\n"
+}

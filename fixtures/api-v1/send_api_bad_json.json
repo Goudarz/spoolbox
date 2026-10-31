@@ -1,0 +1,14 @@
+{
+  "name": "send_api_bad_json",
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/send",
+    "body": "{not json"
+  },
+  "status": 400,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "Error": "key must be a string at line 1 column 2"
+  }
+}

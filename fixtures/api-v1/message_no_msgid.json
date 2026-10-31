@@ -1,0 +1,49 @@
+{
+  "name": "message_no_msgid",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-no-msgid>",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "application/json",
+  "content_disposition": null,
+  "body_json": {
+    "ID": "<ID:fixture-no-msgid>",
+    "MessageID": "",
+    "From": {
+      "Name": "",
+      "Address": "nomsgid@example.com"
+    },
+    "To": [
+      {
+        "Name": "",
+        "Address": "erin@example.com"
+      }
+    ],
+    "Cc": [],
+    "Bcc": [
+      {
+        "Name": "",
+        "Address": "hidden@example.com"
+      }
+    ],
+    "ReplyTo": [],
+    "ReturnPath": "envelope@example.com",
+    "Subject": "fixture-no-msgid",
+    "ListUnsubscribe": {
+      "Header": "",
+      "Links": [],
+      "Errors": "",
+      "HeaderPost": ""
+    },
+    "Date": "<TIMESTAMP>",
+    "Tags": [],
+    "Username": "",
+    "Text": "body\r\n",
+    "HTML": "",
+    "Size": 84,
+    "Inline": [],
+    "Attachments": []
+  }
+}

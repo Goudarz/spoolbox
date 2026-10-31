@@ -1,0 +1,12 @@
+{
+  "name": "part_html_2",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/message/<ID:fixture-html>/part/2",
+    "body": null
+  },
+  "status": 200,
+  "content_type": "text/plain",
+  "content_disposition": "inline; filename=\"_____.txt\"; filename*=UTF-8''%DA%AF%D8%B2%D8%A7%D8%B1%D8%B4.txt",
+  "body_text": "سلام"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "tags_rename",
+  "request": {
+    "method": "PUT",
+    "path": "/api/v1/tags/ascii-ok",
+    "body": {
+      "Name": "renamed"
+    }
+  },
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": null,
+  "body_text": "ok"
+}

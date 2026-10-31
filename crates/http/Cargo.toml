@@ -26,12 +26,16 @@ regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "macros", "sync", "time"] }
+tokio-rustls.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 http-body-util.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
+rustls-pki-types.workspace = true
 spoolbox-config.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "macros", "io-util", "time"] }
 

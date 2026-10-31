@@ -8,12 +8,12 @@ mod access;
 mod api;
 mod events;
 mod host;
+mod tls;
 mod v1;
 mod v2;
 
 use std::future::Future;
 use std::io;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -31,6 +31,7 @@ pub use access::{AccessPolicy, SendAuth};
 pub use api::{Api, InstanceInfo};
 pub use events::spawn_bridge;
 pub use host::HostPolicy;
+pub use tls::{Peer, TlsListener};
 
 /// Request bodies above this size are rejected.
 /// The send API uses `--max-message-size` instead.
@@ -184,9 +185,21 @@ pub async fn serve(
     app: Router,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> io::Result<()> {
+    axum::serve(listener, app.into_make_service_with_connect_info::<Peer>())
+        .with_graceful_shutdown(shutdown)
+        .await
+}
+
+/// Like [`serve`], over HTTPS.
+pub async fn serve_tls(
+    listener: tokio::net::TcpListener,
+    tls: Arc<tokio_rustls::rustls::ServerConfig>,
+    app: Router,
+    shutdown: impl Future<Output = ()> + Send + 'static,
+) -> io::Result<()> {
     axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
+        TlsListener::new(listener, tls)?,
+        app.into_make_service_with_connect_info::<Peer>(),
     )
     .with_graceful_shutdown(shutdown)
     .await

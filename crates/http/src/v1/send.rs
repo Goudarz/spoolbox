@@ -1,8 +1,6 @@
 //! `POST /api/v1/send`. Addresses may also be plain strings
 //! (`"Name <a@b>"` or `"a@b"`) instead of `{"Email", "Name"}` objects (NEW-17).
 
-use std::net::SocketAddr;
-
 use axum::Router;
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::StatusCode;
@@ -258,8 +256,8 @@ fn build(v: &Value) -> Result<(String, Vec<String>, Vec<u8>), String> {
 async fn send(State(api): State<Api>, req: Request) -> Response {
     let peer = req
         .extensions()
-        .get::<ConnectInfo<SocketAddr>>()
-        .map(|c| c.0.ip().to_string())
+        .get::<ConnectInfo<crate::Peer>>()
+        .map(|c| c.0.0.ip().to_string())
         .unwrap_or_default();
     let user = req.extensions().get::<AuthUser>().map(|u| u.0.clone());
     let limit = match api.0.info.max_message_size {

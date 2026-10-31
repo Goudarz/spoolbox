@@ -122,3 +122,76 @@ async fn serves_over_tcp_and_shuts_down() {
     tx.send(()).expect("signal");
     server.await.expect("join").expect("serve");
 }
+
+#[tokio::test]
+async fn serves_https_and_rejects_plain_http() {
+    use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).expect("cert");
+    let der: CertificateDer<'static> = cert.cert.der().clone();
+    let key = PrivateKeyDer::try_from(cert.signing_key.serialize_der()).expect("key");
+    let server = rustls::ServerConfig::builder_with_provider(provider.clone())
+        .with_safe_default_protocol_versions()
+        .expect("versions")
+        .with_no_client_auth()
+        .with_single_cert(vec![der.clone()], key)
+        .expect("server config");
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let addr = listener.local_addr().expect("addr");
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let task = tokio::spawn(serve_tls(
+        listener,
+        Arc::new(server),
+        app("/", true),
+        async move {
+            let _ = rx.await;
+        },
+    ));
+
+    // A silent client must not block the next one (handshakes run concurrently).
+    let _idle = tokio::net::TcpStream::connect(addr).await.expect("idle");
+
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(der).expect("root");
+    let client = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .expect("versions")
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    let tcp = tokio::net::TcpStream::connect(addr).await.expect("connect");
+    let mut tls = tokio_rustls::TlsConnector::from(Arc::new(client))
+        .connect(ServerName::try_from("localhost").expect("name"), tcp)
+        .await
+        .expect("handshake");
+    tls.write_all(b"GET /readyz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        .await
+        .expect("write");
+    let mut buf = Vec::new();
+    let _ = tls.read_to_end(&mut buf).await;
+    assert!(String::from_utf8_lossy(&buf).starts_with("HTTP/1.1 200"));
+
+    let mut plain = tokio::net::TcpStream::connect(addr).await.expect("plain");
+    plain
+        .write_all(b"GET /readyz HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        .await
+        .expect("write");
+    let mut out = Vec::new();
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        plain.read_to_end(&mut out),
+    )
+    .await;
+    assert!(
+        !String::from_utf8_lossy(&out).contains("200"),
+        "plain HTTP must not be served"
+    );
+
+    tx.send(()).expect("stop");
+    task.await.expect("join").expect("serve");
+}

@@ -9,7 +9,7 @@ and `MP_*` environment variables are accepted, so it can replace an existing set
 > mail over SMTP (STARTTLS, implicit TLS, AUTH PLAIN/LOGIN with htpasswd credentials or accept-any,
 > PIPELINING, SMTPUTF8), stores it durably in SQLite and serves API v1
 > (`/api/v1/...`, `/view/{id}.html`, WebSocket `/api/events`) plus a v2 preview (`/api/v2/wait`, SSE events,
-> envelope, MIME tree, links, codes). The web UI arrives in phase 5.
+> envelope, MIME tree, links, codes). A web UI (Svelte) is being added in phase 5 and is embedded in the binary.
 
 ## Design
 
@@ -138,6 +138,21 @@ certificate (`--smtp-tls-cert auto` is enough) unless `--smtp-auth-allow-insecur
 **Safe by default:** Spoolbox listens on loopback only. A listener on another interface needs
 authentication for that protocol (`--ui-auth-file` for HTTP, `--smtp-auth-file` for SMTP), or an explicit
 `--allow-unauthenticated-network` (`SPOOLBOX_ALLOW_UNAUTHENTICATED_NETWORK=true`, e.g. in a container).
+
+## Web UI
+
+The UI lives in [`web/`](web/) (Svelte 5, TypeScript, Vite) and is embedded into the binary at build time;
+a binary built without it shows a short page with these instructions instead.
+
+```sh
+npm --prefix web ci
+npm --prefix web run build      # writes web/dist, picked up by the next cargo build
+cargo build --release -p spoolbox
+npm --prefix web run dev        # live reload against a server on 127.0.0.1:8025
+npm --prefix web run test:e2e   # Playwright: inbox, preview sandbox, XSS corpus, accessibility
+```
+
+HTTPS: `--ui-tls-cert auto` (self-signed) or `--ui-tls-cert cert.pem --ui-tls-key key.pem`.
 
 ## Development
 

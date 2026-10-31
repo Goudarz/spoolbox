@@ -32,6 +32,12 @@ pub(crate) fn routes() -> Router<Api> {
         .route("/api/v2/messages/{id}/codes", get(codes))
         .route("/api/v2/messages/{id}/transcript", get(message_transcript))
         .route("/api/v2/transcripts", get(transcripts))
+        .route(
+            "/api/v2/chaos/rules",
+            get(chaos_rules)
+                .put(set_chaos_rules)
+                .delete(clear_chaos_rules),
+        )
         .route("/api/v2/transcripts/{id}", get(transcript))
 }
 
@@ -451,6 +457,104 @@ async fn message_transcript(State(api): State<Api>, Path(id): Path<String>) -> R
             StatusCode::NOT_FOUND,
             "no transcript for this message (not received over SMTP, or no longer kept)",
         ),
+    }
+}
+
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RuleJson {
+    stage: String,
+    #[serde(rename = "match", default, skip_serializing_if = "Option::is_none")]
+    pattern: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    code: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+    #[serde(default)]
+    delay_ms: u64,
+    #[serde(default)]
+    disconnect: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    times: Option<u32>,
+    /// Output only: how often the rule has fired.
+    #[serde(default, skip_deserializing)]
+    fired: u32,
+}
+
+fn chaos_off() -> Response {
+    problem(
+        StatusCode::NOT_FOUND,
+        "chaos is off; start the server with --enable-chaos",
+    )
+}
+
+fn rules_json(chaos: &spoolbox_core::chaos::Chaos) -> Vec<RuleJson> {
+    chaos
+        .rules()
+        .into_iter()
+        .map(|(r, fired)| RuleJson {
+            stage: r.stage.as_str().to_string(),
+            pattern: r.pattern,
+            code: r.code,
+            message: r.message,
+            delay_ms: r.delay_ms,
+            disconnect: r.disconnect,
+            times: r.times,
+            fired,
+        })
+        .collect()
+}
+
+async fn chaos_rules(State(api): State<Api>) -> Response {
+    match &api.0.chaos {
+        Some(c) => ok(&rules_json(c)),
+        None => chaos_off(),
+    }
+}
+
+/// Replaces all rules; counters start again from zero.
+async fn set_chaos_rules(State(api): State<Api>, body: Bytes) -> Response {
+    let Some(chaos) = &api.0.chaos else {
+        return chaos_off();
+    };
+    let list: Vec<RuleJson> = match serde_json::from_slice(&body) {
+        Ok(l) => l,
+        Err(e) => {
+            return problem(
+                StatusCode::BAD_REQUEST,
+                format!("expected a list of rules: {e}"),
+            );
+        }
+    };
+    let mut rules = Vec::with_capacity(list.len());
+    for (i, r) in list.into_iter().enumerate() {
+        let stage = match spoolbox_core::chaos::RuleStage::parse(&r.stage) {
+            Ok(s) => s,
+            Err(e) => return problem(StatusCode::BAD_REQUEST, format!("rule {}: {e}", i + 1)),
+        };
+        rules.push(spoolbox_core::chaos::Rule {
+            stage,
+            pattern: r.pattern,
+            code: r.code,
+            message: r.message,
+            delay_ms: r.delay_ms,
+            disconnect: r.disconnect,
+            times: r.times,
+        });
+    }
+    match chaos.set_rules(rules) {
+        Ok(()) => ok(&rules_json(chaos)),
+        Err(e) => problem(StatusCode::BAD_REQUEST, e),
+    }
+}
+
+async fn clear_chaos_rules(State(api): State<Api>) -> Response {
+    match &api.0.chaos {
+        Some(c) => {
+            let _ = c.set_rules(Vec::new());
+            StatusCode::NO_CONTENT.into_response()
+        }
+        None => chaos_off(),
     }
 }
 

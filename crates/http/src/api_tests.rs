@@ -776,3 +776,37 @@ async fn cursor_then_wait_does_not_miss_early_mail() {
         id.as_str()
     );
 }
+
+#[tokio::test]
+async fn chaos_rules_api() {
+    let t = T::new();
+    let (s, _, _) = t.req(Method::GET, "/api/v2/chaos/rules", None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND, "off unless --enable-chaos");
+
+    let mut settings = settings();
+    settings.chaos.enabled = true;
+    let t = build(&settings, HttpOptions::new("/"));
+    let rules = json!([
+        {"stage": "recipient", "match": "@flaky[.]test$", "code": 452, "message": "4.2.2 Mailbox full", "times": 2},
+        {"stage": "connect", "delay_ms": 250}
+    ]);
+    let (s, _, b) = t
+        .req(Method::PUT, "/api/v2/chaos/rules", Some(&rules.to_string()))
+        .await;
+    assert_eq!(s, StatusCode::OK, "{}", text(&b));
+    let got = t.get_json("/api/v2/chaos/rules").await;
+    assert_eq!(got[0]["fired"], 0);
+    assert_eq!(got[1]["stage"], "connect");
+    let (s, _, b) = t
+        .req(
+            Method::PUT,
+            "/api/v2/chaos/rules",
+            Some(r#"[{"stage":"data"}]"#),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    assert!(text(&b).contains("needs a code"), "{}", text(&b));
+    let (s, _, _) = t.req(Method::DELETE, "/api/v2/chaos/rules", None).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    assert_eq!(t.get_json("/api/v2/chaos/rules").await, json!([]));
+}

@@ -87,6 +87,31 @@
         "responses": { "200": { "$ref": "#/components/responses/Transcript" }, "404": { "$ref": "#/components/responses/Problem" } }
       }
     },
+    "/api/v2/chaos/rules": {
+      "get": {
+        "summary": "Deterministic chaos rules",
+        "description": "Rules are checked in order; the first one for the stage that matches and has not used up `times` fires. Only with `--enable-chaos`.",
+        "operationId": "getChaosRules",
+        "tags": ["testing"],
+        "x-spoolbox-phase": "P6",
+        "responses": { "200": { "description": "Rules", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "required": ["stage"], "properties": { "stage": { "type": "string", "enum": ["connect", "sender", "recipient", "data", "message", "auth"] }, "match": { "type": "string", "description": "Regular expression for the client IP (connect), the sender (sender, data, message) or the recipient" }, "code": { "type": "integer", "minimum": 400, "maximum": 599 }, "message": { "type": "string" }, "delay_ms": { "type": "integer", "minimum": 0, "maximum": 600000 }, "disconnect": { "type": "boolean" }, "times": { "type": "integer", "minimum": 0 }, "fired": { "type": "integer", "readOnly": true } } } } } } }, "404": { "$ref": "#/components/responses/Problem" } }
+      },
+      "put": {
+        "summary": "Replace the chaos rules",
+        "operationId": "setChaosRules",
+        "tags": ["testing"],
+        "x-spoolbox-phase": "P6",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "required": ["stage"], "properties": { "stage": { "type": "string", "enum": ["connect", "sender", "recipient", "data", "message", "auth"] }, "match": { "type": "string", "description": "Regular expression for the client IP (connect), the sender (sender, data, message) or the recipient" }, "code": { "type": "integer", "minimum": 400, "maximum": 599 }, "message": { "type": "string" }, "delay_ms": { "type": "integer", "minimum": 0, "maximum": 600000 }, "disconnect": { "type": "boolean" }, "times": { "type": "integer", "minimum": 0 }, "fired": { "type": "integer", "readOnly": true } } } } } } },
+        "responses": { "200": { "description": "Rules", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "required": ["stage"], "properties": { "stage": { "type": "string", "enum": ["connect", "sender", "recipient", "data", "message", "auth"] }, "match": { "type": "string", "description": "Regular expression for the client IP (connect), the sender (sender, data, message) or the recipient" }, "code": { "type": "integer", "minimum": 400, "maximum": 599 }, "message": { "type": "string" }, "delay_ms": { "type": "integer", "minimum": 0, "maximum": 600000 }, "disconnect": { "type": "boolean" }, "times": { "type": "integer", "minimum": 0 }, "fired": { "type": "integer", "readOnly": true } } } } } } }, "400": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" } }
+      },
+      "delete": {
+        "summary": "Remove all chaos rules",
+        "operationId": "clearChaosRules",
+        "tags": ["testing"],
+        "x-spoolbox-phase": "P6",
+        "responses": { "204": { "description": "Removed" }, "404": { "$ref": "#/components/responses/Problem" } }
+      }
+    },
     "/api/v2/messages/{id}/envelope": {
       "get": {
         "summary": "SMTP envelope as received",

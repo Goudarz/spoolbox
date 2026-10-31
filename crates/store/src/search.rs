@@ -186,6 +186,60 @@ impl Store {
         Ok(ids.iter().filter(|i| found.contains(*i)).cloned().collect())
     }
 
+    /// Whether one message matches `q`.
+    pub fn seq_matches(&self, q: &Query, seq: i64) -> Result<bool> {
+        self.read(|c| {
+            let (cond, mut args) = conditions(q, None);
+            args.push(Value::from(seq));
+            let n: i64 = c.query_row(
+                &format!("SELECT COUNT(*) FROM messages m WHERE {cond} AND m.seq = ?"),
+                params_from_iter(args),
+                |r| r.get(0),
+            )?;
+            Ok(n > 0)
+        })
+    }
+
+    /// Adds tags (keeping existing ones) from an automatic source such as tag rules.
+    /// Returns the message's tags afterwards, or `None` if it no longer exists.
+    pub fn add_tags(
+        &self,
+        seq: i64,
+        tags: &[String],
+        source: TagSource,
+    ) -> Result<Option<Vec<String>>> {
+        let now = now_micros();
+        let mut conn = self.writer();
+        let tx = conn.transaction()?;
+        let Some(id): Option<String> = tx
+            .query_row("SELECT id FROM messages WHERE seq = ?1", [seq], |r| {
+                r.get(0)
+            })
+            .ok()
+        else {
+            return Ok(None);
+        };
+        let before = tags_for(&tx, seq)?;
+        for t in tags {
+            if clean_tag(t).is_some() {
+                attach_tag(&tx, seq, t, source)?;
+            }
+        }
+        let after = tags_for(&tx, seq)?;
+        if after == before {
+            return Ok(Some(after));
+        }
+        tx.execute(
+            "INSERT INTO events (at, kind, message_id, data) VALUES (?1, 'message.updated', ?2, ?3)",
+            params![now, id, serde_json::json!({ "tags": after }).to_string()],
+        )?;
+        let ev = tx.last_insert_rowid();
+        tx.commit()?;
+        drop(conn);
+        self.notify(ev);
+        Ok(Some(after))
+    }
+
     /// Newest matching message ID (`latest` in API paths).
     pub fn latest(&self, q: &Query) -> Result<Option<String>> {
         Ok(self

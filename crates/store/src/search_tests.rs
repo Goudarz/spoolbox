@@ -308,3 +308,38 @@ fn filter_ids_keeps_matching_subset() {
         Vec::<String>::new()
     );
 }
+
+#[test]
+fn rule_tags_are_added_once() {
+    let f = fixture();
+    let s = &f.s;
+    let seq = s.get(&f.invoice).expect("get").expect("row").seq;
+    assert!(
+        s.seq_matches(&parse("from:billing", None), seq)
+            .expect("match")
+    );
+    assert!(
+        !s.seq_matches(&parse("from:nobody", None), seq)
+            .expect("match")
+    );
+    let before = s.last_event_seq();
+    let tags = s
+        .add_tags(seq, &["Finance".into(), "Finance".into()], TagSource::Rule)
+        .expect("add")
+        .expect("exists");
+    assert!(tags.contains(&"Finance".to_string()));
+    let after_first = s.last_event_seq();
+    assert!(after_first > before);
+    s.add_tags(seq, &["Finance".into()], TagSource::Rule)
+        .expect("again");
+    assert_eq!(
+        s.last_event_seq(),
+        after_first,
+        "no event when nothing changes"
+    );
+    assert_eq!(
+        s.add_tags(i64::MAX, &["x".into()], TagSource::Rule)
+            .expect("missing"),
+        None
+    );
+}

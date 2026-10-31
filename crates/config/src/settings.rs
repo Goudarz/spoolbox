@@ -114,6 +114,13 @@ pub struct StorageSettings {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagRule {
+    /// Search query, same syntax as the API.
+    pub query: String,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TagSettings {
     /// Tag from `user+tag@domain` addresses.
     pub plus_addresses: bool,
@@ -123,6 +130,8 @@ pub struct TagSettings {
     pub title_case: bool,
     /// Tag with the SMTP AUTH user name.
     pub username: bool,
+    /// Automatic tags: messages matching `query` get `tags` once indexed.
+    pub rules: Vec<TagRule>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,6 +225,7 @@ impl Default for Settings {
                 x_tags: true,
                 title_case: false,
                 username: false,
+                rules: Vec::new(),
             },
             network: NetworkSettings {
                 allow_unauthenticated_network: false,

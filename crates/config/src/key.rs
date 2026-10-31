@@ -64,6 +64,8 @@ pub enum Key {
     BlockRemoteCssAndFonts,
     SmtpTranscripts,
     McpAllowDelete,
+    Tag,
+    TagsConfig,
 }
 
 impl Key {
@@ -111,6 +113,9 @@ pub(crate) struct Builder {
     pub cors: Option<(String, Origin)>,
     pub ui_tls_cert: Option<(String, Origin)>,
     pub ui_tls_key: Option<(String, Origin)>,
+    /// `--tag` rules and the `--tags-config` file, resolved in `finish`.
+    pub tag_spec: Option<(String, Origin)>,
+    pub tags_config: Option<(String, Origin)>,
 }
 
 /// An htpasswd file and/or inline entries; the file wins when both are set.
@@ -274,6 +279,8 @@ impl Builder {
             Key::ApiCors => self.cors = non_empty(v, origin),
             Key::UiTlsCert => self.ui_tls_cert = non_empty(v, origin),
             Key::UiTlsKey => self.ui_tls_key = non_empty(v, origin),
+            Key::Tag => self.tag_spec = non_empty(v, origin),
+            Key::TagsConfig => self.tags_config = non_empty(v, origin),
             Key::ChaosTriggers => {
                 if !v.is_empty() {
                     s.chaos.triggers =

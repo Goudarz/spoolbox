@@ -101,6 +101,15 @@ struct Tags {
     disable: Option<Vec<String>>,
     title_case: Option<bool>,
     username: Option<bool>,
+    rules: Option<Vec<TagRuleFile>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TagRuleFile {
+    #[serde(rename = "match")]
+    query: String,
+    tags: Vec<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -119,8 +128,13 @@ struct Log {
 
 pub(crate) type Assignment = (Key, String, Origin);
 
-/// Settings from the file, plus chaos rules (structured, so not expressible as one value).
-pub(crate) type Parsed = (Vec<Assignment>, Option<Vec<spoolbox_core::chaos::Rule>>);
+/// Settings from the file, plus structured rules that are not expressible as one value.
+#[derive(Debug, Default)]
+pub(crate) struct Parsed {
+    pub assignments: Vec<Assignment>,
+    pub chaos_rules: Option<Vec<spoolbox_core::chaos::Rule>>,
+    pub tag_rules: Vec<crate::TagRule>,
+}
 
 pub(crate) fn read(path: &Path) -> Result<Parsed, ConfigError> {
     let text = std::fs::read_to_string(path).map_err(|source| ConfigError::FileRead {
@@ -176,6 +190,27 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
     })?;
     let chaos = cfg.chaos.take().unwrap_or_default();
     let chaos_rules = chaos.rules.map(|r| rules(path, r)).transpose()?;
+    let mut tag_rules = Vec::new();
+    if let Some(list) = cfg.tags.as_mut().and_then(|t| t.rules.take()) {
+        for (i, r) in list.into_iter().enumerate() {
+            let tags = r
+                .tags
+                .iter()
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect();
+            if r.query.trim().is_empty() {
+                return Err(ConfigError::FileParse {
+                    path: path.to_path_buf(),
+                    message: format!("tags.rules[{i}]: `match` is empty"),
+                });
+            }
+            tag_rules.push(crate::TagRule {
+                query: r.query.trim().to_string(),
+                tags,
+            });
+        }
+    }
     let mut out = Vec::new();
     let mut push = |key: Key, name: &str, value: Option<String>| {
         if let Some(v) = value {
@@ -358,5 +393,9 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
     push(Key::LogFile, "log.file", log.file);
     push(Key::EnableChaos, "chaos.enabled", flag(chaos.enabled));
     push(Key::ChaosTriggers, "chaos.triggers", chaos.triggers);
-    Ok((out, chaos_rules))
+    Ok(Parsed {
+        assignments: out,
+        chaos_rules,
+        tag_rules,
+    })
 }

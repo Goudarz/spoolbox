@@ -9,6 +9,7 @@ mod key;
 pub mod registry;
 mod settings;
 mod suggest;
+mod tags;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -17,7 +18,7 @@ pub use error::{ConfigError, Diagnostic, DiagnosticLevel, Origin};
 pub use key::Key;
 pub use settings::{
     ChaosSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat, LogLevel, LogSettings, MIB,
-    NetworkSettings, Settings, SmtpSettings, StorageSettings, TagSettings, TlsSource,
+    NetworkSettings, Settings, SmtpSettings, StorageSettings, TagRule, TagSettings, TlsSource,
 };
 
 use key::{AuthSources, Builder, parse_compat_bool};
@@ -62,11 +63,12 @@ pub fn load(sources: &Sources) -> Result<Loaded, ConfigError> {
         .or_else(|| env.get(CONFIG_ENV).map(|v| v.to_string()))
         .map(PathBuf::from);
     if let Some(path) = &config_file {
-        let (assignments, rules) = file::read(path)?;
-        for (key, value, origin) in assignments {
+        let parsed = file::read(path)?;
+        for (key, value, origin) in parsed.assignments {
             b.apply(key, &value, &origin)?;
         }
-        if let Some(rules) = rules {
+        b.settings.tags.rules = parsed.tag_rules;
+        if let Some(rules) = parsed.chaos_rules {
             // Rules only make sense with chaos on, so configuring them enables it.
             b.settings.chaos.enabled |= !rules.is_empty();
             b.settings.chaos.rules = rules;
@@ -310,6 +312,16 @@ fn finish(
         )));
     }
     let mut s = b.settings;
+    if let Some((path, origin)) = &b.tags_config {
+        let rules = tags::read_yaml(std::path::Path::new(path))
+            .map_err(|e| ConfigError::Conflict(format!("{origin}: {e}")))?;
+        s.tags.rules.extend(rules);
+    }
+    if let Some((spec, origin)) = &b.tag_spec {
+        let rules =
+            tags::parse_spec(spec).map_err(|e| ConfigError::Conflict(format!("{origin}: {e}")))?;
+        s.tags.rules.extend(rules);
+    }
     s.http.tls = tls_source(b.ui_tls_cert, b.ui_tls_key, "--ui-tls-key", "--ui-tls-cert")?;
     s.smtp.tls = match (b.tls_cert, b.tls_key) {
         (Some((cert, _)), _) if cert.eq_ignore_ascii_case("auto") => Some(TlsSource::Auto),

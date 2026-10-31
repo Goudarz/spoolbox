@@ -5,11 +5,11 @@ application, shows it in a web UI and exposes an API for automated tests. Common
 and `MP_*` environment variables are accepted, so it can replace an existing setup without changes; see
 [`docs/spec/02-compatibility.md`](docs/spec/02-compatibility.md).
 
-> **Status: pre-release, phases 1–4 of the [roadmap](docs/spec/07-roadmap.md) are done.** Spoolbox receives
+> **Status: pre-release (MVP), phases 1–5 of the [roadmap](docs/spec/07-roadmap.md) are done.** Spoolbox receives
 > mail over SMTP (STARTTLS, implicit TLS, AUTH PLAIN/LOGIN with htpasswd credentials or accept-any,
 > PIPELINING, SMTPUTF8), stores it durably in SQLite and serves API v1
 > (`/api/v1/...`, `/view/{id}.html`, WebSocket `/api/events`) plus a v2 preview (`/api/v2/wait`, SSE events,
-> envelope, MIME tree, links, codes). A web UI (Svelte) is being added in phase 5 and is embedded in the binary.
+> envelope, MIME tree, links, codes). A web UI (Svelte) is embedded in the binary.
 
 ## Design
 

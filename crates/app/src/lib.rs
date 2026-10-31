@@ -1,6 +1,7 @@
 //! Application services that connect configuration, SMTP, storage and background work.
 
-pub mod ingest;
+pub mod egress;
+mod ingest;
 pub mod jobs;
 pub mod maintenance;
 

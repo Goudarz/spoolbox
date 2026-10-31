@@ -196,6 +196,8 @@ async fn serve(s: &Settings) -> Result<(), String> {
             label: s.label.clone(),
             max_message_size: s.smtp.max_message_size,
             duplicates_ignored: s.storage.ignore_duplicate_ids,
+            hide_delete_all_button: s.http.hide_delete_all_button,
+            block_remote_css_and_fonts: s.http.block_remote_css_and_fonts,
         },
     );
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());

@@ -21,6 +21,9 @@ pub struct InstanceInfo {
     /// Bytes; 0 = unlimited. Also the body limit of the send API.
     pub max_message_size: u64,
     pub duplicates_ignored: bool,
+    pub hide_delete_all_button: bool,
+    /// Message previews load no remote stylesheets or fonts.
+    pub block_remote_css_and_fonts: bool,
 }
 
 /// Everything the API handlers need. Cheap to clone.

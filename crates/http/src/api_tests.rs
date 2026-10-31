@@ -288,6 +288,16 @@ async fn parts_thumbnails_and_views_are_safe() {
         csp.contains("sandbox") && csp.contains("script-src 'nonce-"),
         "{csp}"
     );
+    let (_, h, _) = t
+        .req(Method::GET, &format!("/view/{html}.html?remote=0"), None)
+        .await;
+    let csp = h[header::CONTENT_SECURITY_POLICY]
+        .to_str()
+        .unwrap_or_default();
+    assert!(
+        csp.contains("img-src 'self' data: blob:"),
+        "remote images blocked: {csp}"
+    );
     let (s, _, b) = t
         .req(Method::GET, &format!("/view/{plain}.html"), None)
         .await;

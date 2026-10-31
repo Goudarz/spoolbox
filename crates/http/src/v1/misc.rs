@@ -155,7 +155,7 @@ async fn webui(State(api): State<Api>) -> Response {
             spam_assassin: false,
             chaos_enabled: api.0.chaos.is_some(),
             duplicates_ignored: api.0.info.duplicates_ignored,
-            hide_delete_all_button: false,
+            hide_delete_all_button: api.0.info.hide_delete_all_button,
         },
     )
 }

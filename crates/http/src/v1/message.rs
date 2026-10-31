@@ -338,8 +338,19 @@ pub(crate) async fn view_html(api: Api, webroot: String, id: String, p: Params) 
     } else {
         "sandbox allow-popups allow-popups-to-escape-sandbox"
     };
+    // `remote=0` blocks remote images for this view (tracking pixels); inline parts still load.
+    let images = if p.get("remote").map(String::as_str) == Some("0") {
+        "'self' data: blob:"
+    } else {
+        "* data: blob:"
+    };
+    let (styles, fonts) = if api.0.info.block_remote_css_and_fonts {
+        ("'self' 'unsafe-inline'", "'self' data:")
+    } else {
+        ("* 'unsafe-inline'", "* data:")
+    };
     let csp = format!(
-        "default-src 'none'; {scripts}style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; media-src *; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; {sandbox}"
+        "default-src 'none'; {scripts}style-src {styles}; img-src {images}; font-src {fonts}; media-src *; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; {sandbox}"
     );
     let mut res = (
         [(header::CONTENT_TYPE, "text/html; charset=utf-8")],

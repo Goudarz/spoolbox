@@ -8,6 +8,7 @@ mod access;
 mod api;
 mod events;
 mod host;
+mod mcp;
 mod tls;
 mod ui;
 mod v1;
@@ -121,6 +122,7 @@ pub fn router(opts: &HttpOptions, ready: Readiness, api: Api) -> Router {
     });
     let app = v1::routes()
         .merge(v2::routes())
+        .merge(mcp::routes())
         .route("/api/events", get(events::websocket))
         .with_state(api)
         .merge(view)

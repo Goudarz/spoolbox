@@ -39,6 +39,8 @@ pub(crate) struct Inner {
     pub started: Instant,
     /// Messages deleted through the API (`RuntimeStats.MessagesDeleted`).
     pub deleted: AtomicU64,
+    /// `delete_messages` is offered to MCP clients (`--mcp-allow-delete`).
+    pub mcp_allow_delete: bool,
     /// Recent SMTP sessions (`--smtp-transcripts`).
     pub transcripts: Option<Arc<spoolbox_smtp::Transcripts>>,
     /// v1 WebSocket notifications (JSON text frames).
@@ -61,6 +63,7 @@ impl Api {
             started: Instant::now(),
             deleted: AtomicU64::new(0),
             transcripts: None,
+            mcp_allow_delete: false,
             ws,
         }))
     }
@@ -69,6 +72,14 @@ impl Api {
     pub fn with_transcripts(mut self, t: Option<Arc<spoolbox_smtp::Transcripts>>) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.0) {
             inner.transcripts = t;
+        }
+        self
+    }
+
+    /// Lets MCP clients delete messages. Call right after [`Api::new`].
+    pub fn with_mcp_delete(mut self, allow: bool) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.0) {
+            inner.mcp_allow_delete = allow;
         }
         self
     }

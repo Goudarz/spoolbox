@@ -810,3 +810,139 @@ async fn chaos_rules_api() {
     assert_eq!(s, StatusCode::NO_CONTENT);
     assert_eq!(t.get_json("/api/v2/chaos/rules").await, json!([]));
 }
+
+async fn rpc(t: &T, body: Value) -> (StatusCode, Value) {
+    let (s, _, b) = t.req(Method::POST, "/mcp", Some(&body.to_string())).await;
+    (s, serde_json::from_slice(&b).unwrap_or(Value::Null))
+}
+
+#[tokio::test]
+async fn mcp_tools() {
+    let t = T::new();
+    let (s, init) = rpc(&t, json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}}})).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(init["result"]["serverInfo"]["name"], "spoolbox");
+    let (s, _) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+    )
+    .await;
+    assert_eq!(s, StatusCode::ACCEPTED);
+
+    let (_, list) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+    )
+    .await;
+    let names: Vec<&str> = list["result"]["tools"]
+        .as_array()
+        .expect("tools")
+        .iter()
+        .filter_map(|x| x["name"].as_str())
+        .collect();
+    assert!(names.contains(&"wait_for_message") && names.contains(&"get_codes"));
+    assert!(
+        !names.contains(&"delete_messages"),
+        "deleting needs --mcp-allow-delete"
+    );
+
+    let (_, cursor) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+        "params": {"name": "event_cursor", "arguments": {}}}),
+    )
+    .await;
+    let seq = cursor["result"]["structuredContent"]["seq"]
+        .as_i64()
+        .expect("seq");
+    let id = t.put(HTML_MSG, &["bob+signup@example.com"]).await;
+    let (_, waited) = rpc(&t, json!({"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+        "params": {"name": "wait_for_message", "arguments": {"query": "subject:order", "since_seq": seq, "timeout_seconds": 2}}})).await;
+    assert_eq!(
+        waited["result"]["structuredContent"]["message"]["id"],
+        id.as_str(),
+        "{waited}"
+    );
+
+    let (_, codes) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 5, "method": "tools/call",
+        "params": {"name": "get_codes", "arguments": {"id": "latest"}}}),
+    )
+    .await;
+    assert_eq!(
+        codes["result"]["structuredContent"]["codes"][0]["value"],
+        "482913"
+    );
+    let (_, msg) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 6, "method": "tools/call",
+        "params": {"name": "get_message", "arguments": {"id": id}}}),
+    )
+    .await;
+    let m = &msg["result"]["structuredContent"];
+    assert_eq!(m["envelope"]["mail_from"], "envelope@example.com");
+    assert_eq!(
+        m["message"]["read"], false,
+        "reading through MCP has no side effects"
+    );
+
+    let (_, missing) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+        "params": {"name": "get_raw", "arguments": {"id": "nope"}}}),
+    )
+    .await;
+    assert_eq!(missing["result"]["isError"], true);
+    let (_, unknown) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 8, "method": "resources/list"}),
+    )
+    .await;
+    assert_eq!(unknown["error"]["code"], -32601);
+
+    let req = Request::post("/mcp")
+        .header(header::HOST, "localhost:8025")
+        .header(header::ORIGIN, "https://evil.test")
+        .body(Body::from(
+            json!({"jsonrpc": "2.0", "id": 9, "method": "ping"}).to_string(),
+        ))
+        .expect("req");
+    assert_eq!(
+        t.call(req).await.0,
+        StatusCode::FORBIDDEN,
+        "foreign origins are refused"
+    );
+}
+
+#[tokio::test]
+async fn mcp_delete_only_when_allowed() {
+    let (core, api) = test_api(&settings());
+    let api = api.with_mcp_delete(true);
+    let r = Readiness::default();
+    r.set(true);
+    let t = T {
+        app: router(&HttpOptions::new("/"), r, api),
+        core,
+    };
+    let id = t.put(PLAIN_MSG, &["erin@example.com"]).await;
+    let (_, all) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "delete_messages", "arguments": {"query": ""}}}),
+    )
+    .await;
+    assert_eq!(
+        all["result"]["isError"], true,
+        "an empty query never deletes everything"
+    );
+    let (_, del) = rpc(
+        &t,
+        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": "delete_messages", "arguments": {"ids": [id]}}}),
+    )
+    .await;
+    assert_eq!(del["result"]["structuredContent"]["deleted"], 1);
+}

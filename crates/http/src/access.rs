@@ -66,8 +66,10 @@ pub(crate) async fn guard(
     let under_api = path.starts_with(&format!("{}api/", policy.webroot));
     let html_view =
         path.starts_with(&format!("{}view/", policy.webroot)) && path.ends_with(".html");
+    // MCP requires Origin validation on its HTTP transport (DNS rebinding).
+    let mcp = path == format!("{}mcp", policy.webroot);
     let mut allow_origin = None;
-    if (under_api || html_view)
+    if (under_api || html_view || mcp)
         && let Some(origin) = req.headers().get(header::ORIGIN)
     {
         let origin_host = origin_host(origin.to_str().unwrap_or_default());

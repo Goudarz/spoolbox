@@ -5,7 +5,7 @@ application, shows it in a web UI and exposes an API for automated tests. Common
 and `MP_*` environment variables are accepted, so it can replace an existing setup without changes; see
 [`docs/spec/02-compatibility.md`](docs/spec/02-compatibility.md).
 
-> **Status: pre-release (MVP), phases 1–5 of the [roadmap](docs/spec/07-roadmap.md) are done.** Spoolbox receives
+> **Status: pre-release (MVP), phases 1–6 of the [roadmap](docs/spec/07-roadmap.md) are done.** Spoolbox receives
 > mail over SMTP (STARTTLS, implicit TLS, AUTH PLAIN/LOGIN with htpasswd credentials or accept-any,
 > PIPELINING, SMTPUTF8), stores it durably in SQLite and serves API v1
 > (`/api/v1/...`, `/view/{id}.html`, WebSocket `/api/events`) plus a v2 preview (`/api/v2/wait`, SSE events,
@@ -54,6 +54,11 @@ cargo build --release
 ./target/release/spoolbox send-sample            # send sample messages (Persian/RTL, attachments, OTP...)
 ./target/release/spoolbox readyz --wait --timeout 30s
 ./target/release/spoolbox reindex mail.db        # rebuild the MIME and full-text index
+./target/release/spoolbox doctor                 # explain port, TLS, storage and exposure problems
+./target/release/spoolbox wait 'to:alice@example.com subject:verify' --timeout 10s   # prints the ID
+./target/release/spoolbox export out/ --query tag:signup   # .eml files (or --format mbox)
+./target/release/spoolbox import fixtures/*.eml  # .eml files, directories or mbox
+./target/release/spoolbox mcp                    # MCP server on stdio for AI assistants
 ./target/release/spoolbox --help
 ```
 
@@ -138,6 +143,21 @@ certificate (`--smtp-tls-cert auto` is enough) unless `--smtp-auth-allow-insecur
 **Safe by default:** Spoolbox listens on loopback only. A listener on another interface needs
 authentication for that protocol (`--ui-auth-file` for HTTP, `--smtp-auth-file` for SMTP), or an explicit
 `--allow-unauthenticated-network` (`SPOOLBOX_ALLOW_UNAUTHENTICATED_NETWORK=true`, e.g. in a container).
+
+## Testing your application's email
+
+- **Wait, don't poll:** take `GET /api/v2/events/cursor`, trigger the email, then `POST /api/v2/wait` with
+  `since_seq`; or `spoolbox wait` in scripts. Examples for Python, Node.js, Go, shell and Docker Compose
+  (all run in CI): [`examples/`](examples/README.md).
+- **Rust:** `spoolbox-testkit` with feature `server` runs a complete Spoolbox inside the test process
+  ([example](crates/spoolbox/tests/testkit.rs)).
+- **Reproducible failures:** `--enable-chaos` plus rules (`[[chaos.rules]]` in the config file or
+  `PUT /api/v2/chaos/rules`), e.g. "answer 452 to the first two recipients at `@flaky.test`", "wait 3 s
+  before the greeting", "drop the connection after DATA".
+- **Why does my client fail?** `--smtp-transcripts` keeps redacted SMTP conversations of recent sessions
+  (`/api/v2/transcripts`, and an SMTP tab in the message view).
+- **AI assistants:** `spoolbox mcp` (stdio) or `POST /mcp`; reading, waiting, codes and links. Deleting
+  needs `--mcp-allow-delete`.
 
 ## Web UI
 

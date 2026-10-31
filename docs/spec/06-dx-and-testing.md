@@ -6,19 +6,19 @@
 
 | ID | پیشنهاد | مشکل کاربر | ارزش | پیچیدگی | نگهداری | ریسک امنیتی | فاز |
 |---|---|---|---|---|---|---|---|
-| DX-01 | `POST /api/v2/wait` / `spoolbox wait --query ... --timeout 10s` | تست‌ها برای انتظار پیام polling می‌کنند | بسیار بالا | کم (روی event log) | کم | کم | P0 (MVP) |
-| DX-02 | Envelope در API و UI | تست Bcc/گیرنده واقعی بدون envelope ممکن نیست | بالا | کم | کم | — | P0 |
-| DX-03 | Raw byte-exact | تست DKIM/امضا روی پیام دست‌کاری‌شده نامعتبر است | بالا | کم | کم | — | P0 |
-| DX-04 | Event stream با resume (SSE `?since=`) | ازدست‌رفتن event پس از reconnect | بالا | متوسط | متوسط | کم | P1 |
+| DX-01 ✅ | `POST /api/v2/wait` / `spoolbox wait --query ... --timeout 10s` | تست‌ها برای انتظار پیام polling می‌کنند | بسیار بالا | کم (روی event log) | کم | کم | P0 (MVP) |
+| DX-02 ✅ | Envelope در API و UI | تست Bcc/گیرنده واقعی بدون envelope ممکن نیست | بالا | کم | کم | — | P0 |
+| DX-03 ✅ | Raw byte-exact | تست DKIM/امضا روی پیام دست‌کاری‌شده نامعتبر است | بالا | کم | کم | — | P0 |
+| DX-04 ✅ | Event stream با resume (SSE `?since=`) | ازدست‌رفتن event پس از reconnect | بالا | متوسط | متوسط | کم | P1 |
 | DX-05 | Namespace منطقی (`user+ns@` یا `X-Spoolbox-Namespace` یا پورت/credential) — P1، درخواست پرتکرار برای CI موازی | جداسازی تست‌های موازی CI | بالا | متوسط | متوسط | کم | P1 |
-| DX-06 | `spoolbox doctor` | عیب‌یابی پورت اشغال، TLS، bind | متوسط | کم | کم | — | P1 |
-| DX-07 | SMTP transcript (opt-in، با redaction AUTH) | «چرا کلاینت من خطا می‌گیرد؟» | بالا | کم | کم | متوسط (محرمانگی) — پیش‌فرض خاموش | P1 |
-| DX-08 | Chaos گسترده و deterministic (`fail-next: 2`، DATA-phase، تأخیر، قطع) | Chaos تصادفی برای تست CI قابل‌تکرار نیست | بالا | کم | کم | — | P1 |
-| DX-09 | نمایش درخت MIME و خطاهای parse | parse failure بی‌صدا (MIME-02) | بالا | کم | کم | — | P1 |
+| DX-06 ✅ | `spoolbox doctor` | عیب‌یابی پورت اشغال، TLS، bind | متوسط | کم | کم | — | P1 |
+| DX-07 ✅ | SMTP transcript (opt-in، با redaction AUTH) | «چرا کلاینت من خطا می‌گیرد؟» | بالا | کم | کم | متوسط (محرمانگی) — پیش‌فرض خاموش | P1 |
+| DX-08 ✅ | Chaos گسترده و deterministic (`fail-next: 2`، DATA-phase، تأخیر، قطع) | Chaos تصادفی برای تست CI قابل‌تکرار نیست | بالا | کم | کم | — | P1 |
+| DX-09 ✅ | نمایش درخت MIME و خطاهای parse | parse failure بی‌صدا (MIME-02) | بالا | کم | کم | — | P1 |
 | DX-10 | اطلاعات زمان‌بندی (receive→commit→indexed) | — | کم | کم | کم | — | P2 |
-| DX-11 | Export/Import (eml، mbox) | fixture گرفتن از تست‌ها | متوسط | متوسط | کم | path traversal | P1 |
+| DX-11 ✅ | Export/Import (eml، mbox) | fixture گرفتن از تست‌ها | متوسط | متوسط | کم | path traversal | P1 |
 | DX-12 | Diff دو پیام (هدر و متن) | مقایسه خروجی دو نسخه template | متوسط | متوسط | متوسط | — | P2 |
-| DX-13 | راهنمای framework و نمونه‌ها (Laravel، Django، Rails، Spring، Node، .NET، Go) + snippet docker-compose | — | بالا | کم (مستند) | متوسط | — | P1 |
+| DX-13 ✅ | راهنمای framework و نمونه‌ها (Laravel، Django، Rails، Spring، Node، .NET، Go) + snippet docker-compose | — | بالا | کم (مستند) | متوسط | — | P1 |
 | DX-14 | کتابخانه‌های کلاینت تست (TS، Python) تولیدشده از OpenAPI v2 | — | متوسط | متوسط | بالا | — | P3 |
 | DX-15 | قوانین auto-tag با TOML | — | کم | کم | کم | — | P2 |
 | DX-16 | Webhook قابل‌اعتماد (retry، امضا، UI تاریخچه تحویل، ثبت از API، payload خام/parsed) — ارتقا به P1 | drop رویداد | متوسط | متوسط | متوسط | متوسط | P1 |

@@ -109,6 +109,25 @@ flowchart LR
 
 نسخه‌های npm با قاعده ۱۴ روز: svelte 5.57.2، vite 8.3.4، @sveltejs/vite-plugin-svelte 7.3.1، typescript 6.0.3 (svelte-check هنوز TS 7 را نمی‌پذیرد)، svelte-check 4.7.7، @playwright/test 1.64.1، @axe-core/playwright 4.14.0.
 
+### Phase 6 — وضعیت (2026-10-31): ✅ انجام شد
+
+تأیید مالک: «برو برای فاز ۶». **۲۱۳ تست Rust** و **۱۹ تست Playwright** سبز؛ clippy و cargo-deny سبز.
+
+| بخش | نتیجه |
+|---|---|
+| `wait` CLI (DX-01) | ✅ `spoolbox wait QUERY --timeout --since --json`؛ کد خروج ۱ در timeout؛ انتظار بیش از ۵ دقیقه به چند درخواست تقسیم می‌شود بدون ازدست‌رفتن پیام؛ endpoint جدید `GET /api/v2/events/cursor` برای الگوی بدون race (cursor → ارسال → wait) |
+| SSE resume (DX-04) | ✅ از P4 (`since` و `Last-Event-ID` با `resync`) |
+| doctor (DX-06) | ✅ پیکربندی، پورت آزاد/در اختیار Spoolbox/در اختیار برنامه دیگر، گواهی TLS، دسترسی نوشتن و فضای دیسک، در معرض شبکه بودن؛ کد خروج ۱ با هر FAIL |
+| transcript (DX-07) | ✅ `--smtp-transcripts`: ۲۰۰ نشست اخیر در حافظه؛ AUTH همیشه redacted، بدنه پیام هرگز ثبت نمی‌شود؛ `/api/v2/transcripts`، `/api/v2/messages/{id}/transcript`، تب SMTP در UI |
+| chaos قانون‌محور (DX-08، P6-T05) | ✅ قوانین مرتب با `stage` (connect، sender، recipient، data، message، auth)، `match` (regex)، `code`/`message`، `delay_ms`، `disconnect`، `times`؛ از `[[chaos.rules]]` در TOML و `GET/PUT/DELETE /api/v2/chaos/rules` (شمارنده `fired`)؛ تست deterministic با `times` |
+| export/import (DX-11) | ✅ `spoolbox export` (‎.eml یا mbox با فرمت mboxrd) و `import` (فایل، پوشه، mbox)؛ endpoint جدید `POST /api/v2/messages` (ذخیره خام بایت‌به‌بایت، منبع `import`)؛ ID پاسخ سرور نمی‌تواند مسیر فایل را تعیین کند |
+| نمونه‌های framework (DX-13) | ✅ `examples/`: Python، Node.js، Go، shell (curl + `spoolbox wait`)، Docker Compose، تنظیمات SMTP برای Laravel/Symfony/Django/Rails/Spring/.NET/Nodemailer/Go؛ job `examples` در CI (Go فقط در CI اجرا شد — محلی نصب نیست) |
+| MCP (P6-T10) | ✅ `POST /mcp` (JSON-RPC 2.0، Streamable HTTP، بررسی Origin) + `spoolbox mcp` (پل stdio)؛ ابزارها: list_messages، wait_for_message، event_cursor، get_message (بدون side effect)، get_codes، get_links، get_raw؛ `delete_messages` فقط با `--mcp-allow-delete` و هرگز با query خالی |
+| testkit in-process (P6-T11) | ✅ `spoolbox-testkit` با feature `server`: `TestServer` (SMTP، ذخیره، index، HTTP روی پورت‌های تصادفی)، `wait_for`، `raw`، `chaos`، تابع `send`؛ نمونه در `crates/spoolbox/tests/testkit.rs` در CI |
+
+**یافته در حین کار:** heredocهای Python در این محیط escapeها (`
+`) را به خط جدید واقعی تبدیل می‌کردند و دو تست را خراب کردند؛ پیدا و اصلاح شد (کد محصول تحت تأثیر نبود).
+
 ### Taskهای افزوده
 | Task | قابلیت | ورودی | خروجی | پذیرش |
 |---|---|---|---|---|

@@ -1712,6 +1712,7 @@ dependencies = [
  "spoolbox-http",
  "spoolbox-smtp",
  "spoolbox-store",
+ "spoolbox-testkit",
  "tempfile",
  "tokio",
  "tokio-rustls",
@@ -1863,6 +1864,13 @@ dependencies = [
 name = "spoolbox-testkit"
 version = "0.1.0-dev"
 dependencies = [
+ "spoolbox-app",
+ "spoolbox-config",
+ "spoolbox-core",
+ "spoolbox-http",
+ "spoolbox-search",
+ "spoolbox-smtp",
+ "spoolbox-store",
  "thiserror",
  "tokio",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "spoolbox-testkit"
-description = "Test helpers: SMTP transcript format and runner"
+description = "Test helpers: SMTP transcripts and an in-process Spoolbox for integration tests"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,28 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# A complete server inside the test process (`server::TestServer`).
+server = [
+    "dep:spoolbox-app",
+    "dep:spoolbox-config",
+    "dep:spoolbox-core",
+    "dep:spoolbox-http",
+    "dep:spoolbox-search",
+    "dep:spoolbox-smtp",
+    "dep:spoolbox-store",
+]
+
 [dependencies]
+spoolbox-app = { workspace = true, optional = true }
+spoolbox-config = { workspace = true, optional = true }
+spoolbox-core = { workspace = true, optional = true }
+spoolbox-http = { workspace = true, optional = true }
+spoolbox-search = { workspace = true, optional = true }
+spoolbox-smtp = { workspace = true, optional = true }
+spoolbox-store = { workspace = true, optional = true }
 thiserror.workspace = true
-tokio = { workspace = true, features = ["net", "io-util", "time", "rt", "macros"] }
+tokio = { workspace = true, features = ["net", "io-util", "time", "rt", "macros", "sync"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "io-util", "time", "rt-multi-thread", "macros"] }

@@ -58,7 +58,16 @@ pub fn hostname() -> String {
 }
 
 pub fn load_tls(s: &Settings, hostname: &str) -> Result<Option<Tls>, tls::TlsError> {
-    match &s.smtp.tls {
+    tls_from(s.smtp.tls.as_ref(), hostname)
+}
+
+/// HTTPS configuration for the web UI and API (`--ui-tls-cert`).
+pub fn load_ui_tls(s: &Settings, hostname: &str) -> Result<Option<Tls>, tls::TlsError> {
+    tls_from(s.http.tls.as_ref(), hostname)
+}
+
+fn tls_from(source: Option<&TlsSource>, hostname: &str) -> Result<Option<Tls>, tls::TlsError> {
+    match source {
         None => Ok(None),
         Some(TlsSource::Auto) => tls::self_signed(hostname).map(Some),
         Some(TlsSource::Files { cert, key }) => tls::from_pem_files(cert, key).map(Some),

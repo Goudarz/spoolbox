@@ -1696,6 +1696,7 @@ name = "spoolbox"
 version = "0.1.0-dev"
 dependencies = [
  "clap",
+ "rustls-pki-types",
  "serde_json",
  "spoolbox-app",
  "spoolbox-config",
@@ -1705,6 +1706,7 @@ dependencies = [
  "spoolbox-store",
  "tempfile",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "tracing-subscriber",
 ]

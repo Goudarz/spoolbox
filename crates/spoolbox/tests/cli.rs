@@ -103,6 +103,30 @@ fn serve_then_readyz_succeeds() {
 }
 
 #[test]
+fn https_with_a_generated_certificate() {
+    let srv = start(&["--ui-tls-cert", "auto"]);
+    let ok = run(
+        &[
+            "readyz",
+            "--listen",
+            &srv.addr,
+            "--https",
+            "--wait",
+            "--timeout",
+            "10s",
+        ],
+        &[],
+    );
+    assert!(
+        ok.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ok.stderr)
+    );
+    let plain = run(&["readyz", "--listen", &srv.addr], &[]);
+    assert!(!plain.status.success(), "plain HTTP must not answer");
+}
+
+#[test]
 fn readyz_honours_webroot_from_mp_env() {
     let srv = start(&["--webroot", "mail"]);
     let out = run(

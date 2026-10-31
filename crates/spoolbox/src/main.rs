@@ -55,12 +55,6 @@ fn fail(code: u8, message: &str) -> ExitCode {
 }
 
 async fn run_readyz(m: &clap::ArgMatches) -> ExitCode {
-    if m.get_flag("https") {
-        return fail(
-            EXIT_CONFIG,
-            "--https is not supported yet (HTTPS for the web UI is planned for phase P4)",
-        );
-    }
     let mut cli = Vec::new();
     for key in ["listen", "webroot"] {
         if let Some(v) = m.get_one::<String>(key) {
@@ -89,7 +83,8 @@ async fn run_readyz(m: &clap::ArgMatches) -> ExitCode {
         None
     };
     let s = &loaded.settings.http;
-    match readyz::check(s.listen.connect_addr(), &s.webroot, wait).await {
+    let https = m.get_flag("https") || s.tls.is_some();
+    match readyz::check(s.listen.connect_addr(), &s.webroot, wait, https).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => fail(EXIT_RUNTIME, &e),
     }
@@ -139,6 +134,10 @@ async fn serve(s: &Settings) -> Result<(), String> {
 
     let hostname = spoolbox_app::hostname();
     let tls = spoolbox_app::load_tls(s, &hostname).map_err(|e| e.to_string())?;
+    let ui_tls = spoolbox_app::load_ui_tls(s, &hostname).map_err(|e| e.to_string())?;
+    if let (Some(t), Some(spoolbox_config::TlsSource::Auto)) = (&ui_tls, &s.http.tls) {
+        tracing::info!(fingerprint = %t.fingerprint, "generated a self-signed HTTPS certificate (SHA-256)");
+    }
     if let (Some(t), Some(spoolbox_config::TlsSource::Auto)) = (&tls, &s.smtp.tls) {
         tracing::info!(fingerprint = %t.fingerprint, "generated a self-signed SMTP certificate (SHA-256)");
     }
@@ -176,7 +175,7 @@ async fn serve(s: &Settings) -> Result<(), String> {
         (Some(_), false, false) => "STARTTLS optional",
     };
     tracing::info!(addr = %smtp_local, mode, auth = if s.smtp.auth.is_some() { "credentials" } else if s.smtp.auth_accept_any { "accept any" } else { "off" }, "SMTP listening");
-    tracing::info!(addr = %http_local, url = %format!("http://{http_local}{}", s.http.webroot), "HTTP listening");
+    tracing::info!(addr = %http_local, url = %format!("{}://{http_local}{}", if ui_tls.is_some() { "https" } else { "http" }, s.http.webroot), "HTTP listening");
     let open_http = !s.http.listen.is_loopback() && s.http.auth.is_none();
     let open_smtp = !s.smtp.listen.is_loopback() && s.smtp.auth.is_none();
     if open_http || open_smtp {
@@ -203,13 +202,16 @@ async fn serve(s: &Settings) -> Result<(), String> {
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);
     let shutdown_ready = ready.clone();
-    let result = spoolbox_http::serve(http_listener, app, async move {
+    let shutdown = async move {
         shutdown_signal().await;
         shutdown_ready.set(false);
         tracing::info!("shutting down");
         let _ = stop_tx.send(true);
-    })
-    .await
+    };
+    let result = match ui_tls {
+        Some(t) => spoolbox_http::serve_tls(http_listener, t.config, app, shutdown).await,
+        None => spoolbox_http::serve(http_listener, app, shutdown).await,
+    }
     .map_err(|e| format!("HTTP server failed: {e}"));
 
     let drained = tokio::time::timeout(spoolbox_app::SHUTDOWN_GRACE, async {

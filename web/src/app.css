@@ -1,0 +1,131 @@
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f4f6f8;
+  --bg-hover: #eaf1f8;
+  --bg-selected: #dce9f6;
+  --fg: #1b232c;
+  --fg-muted: #5b6672;
+  --border: #d9dee4;
+  --accent: #2f5d8a;
+  --accent-fg: #ffffff;
+  --danger: #b3261e;
+  --ok: #1e7a3c;
+  --tag-bg: #e6eef7;
+  --tag-fg: #234a70;
+  --focus: #1a73e8;
+  --radius: 6px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Vazirmatn', Tahoma, sans-serif;
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181d;
+    --bg-soft: #1b2027;
+    --bg-hover: #222a33;
+    --bg-selected: #263546;
+    --fg: #e4e8ec;
+    --fg-muted: #9aa5b1;
+    --border: #2d3540;
+    --accent: #6ea3d8;
+    --accent-fg: #0d1117;
+    --danger: #f2827a;
+    --ok: #6fcf8f;
+    --tag-bg: #233243;
+    --tag-fg: #b9d3ee;
+    --focus: #8ab4f8;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.45 var(--font);
+}
+
+#app {
+  height: 100%;
+}
+
+a {
+  color: var(--accent);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.7rem;
+}
+
+button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--fg-muted);
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}

@@ -723,3 +723,38 @@ async fn sse_replays_from_since() {
         "{chunk}"
     );
 }
+
+#[tokio::test]
+async fn import_raw_messages() {
+    let t = T::new();
+    let (s, h, b) = t
+        .req(Method::POST, "/api/v2/messages", Some(HTML_MSG))
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{}", text(&b));
+    assert_eq!(h[header::CONTENT_TYPE], "application/json");
+    let id = serde_json::from_slice::<Value>(&b).expect("json")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    t.core.indexer.run_batch().await;
+    let env = t.get_json(&format!("/api/v2/messages/{id}/envelope")).await;
+    assert_eq!(env["source"], "import");
+    assert_eq!(env["mail_from"], "fa@example.com");
+    assert_eq!(
+        env["rcpt_to"],
+        json!(["bob+signup@example.com", "carol@example.com"])
+    );
+    let (s, _, raw) = t
+        .req(Method::GET, &format!("/api/v1/message/{id}/raw"), None)
+        .await;
+    assert_eq!(
+        (s, raw.as_slice()),
+        (StatusCode::OK, HTML_MSG.as_bytes()),
+        "stored byte-exact"
+    );
+    let (s, h, _) = t.req(Method::POST, "/api/v2/messages", Some("  ")).await;
+    assert_eq!(
+        (s, h[header::CONTENT_TYPE].to_str().unwrap_or_default()),
+        (StatusCode::BAD_REQUEST, "application/problem+json")
+    );
+}

@@ -22,6 +22,7 @@ use crate::api::{Api, Params, rfc3339};
 
 pub(crate) fn routes() -> Router<Api> {
     Router::new()
+        .route("/api/v2/messages", post(import))
         .route("/api/v2/wait", post(wait))
         .route("/api/v2/events", get(events))
         .route("/api/v2/messages/{id}/envelope", get(envelope))
@@ -286,6 +287,69 @@ async fn codes(
 
 fn mail_parser_text(html: &str) -> String {
     spoolbox_mime::html_to_text(html)
+}
+
+#[derive(Serialize)]
+struct Imported {
+    /// `None` when the message was dropped as a duplicate (`--ignore-duplicate-ids`).
+    id: Option<String>,
+}
+
+/// `POST /api/v2/messages`: stores a raw RFC 5322 message (`spoolbox import`, test fixtures).
+/// The envelope is taken from the headers: From as sender, To/Cc/Bcc as recipients.
+async fn import(State(api): State<Api>, req: axum::extract::Request) -> Response {
+    let peer = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<crate::Peer>>()
+        .map(|c| c.0.0.ip().to_string())
+        .unwrap_or_default();
+    let user = req
+        .extensions()
+        .get::<crate::access::AuthUser>()
+        .map(|u| u.0.clone());
+    let limit = match api.0.info.max_message_size {
+        0 => usize::MAX,
+        n => usize::try_from(n).unwrap_or(usize::MAX),
+    };
+    let Ok(raw) = axum::body::to_bytes(req.into_body(), limit).await else {
+        return problem(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "message is larger than --max-message-size",
+        );
+    };
+    if raw.iter().all(u8::is_ascii_whitespace) {
+        return problem(
+            StatusCode::BAD_REQUEST,
+            "the request body must be a raw message (message/rfc822)",
+        );
+    }
+    let h = spoolbox_mime::scan_headers(&raw, &spoolbox_mime::Limits::default());
+    let envelope = spoolbox_core::Envelope {
+        mail_from: h.from.map(|a| a.addr).unwrap_or_default(),
+        rcpt_to: h
+            .to
+            .iter()
+            .chain(&h.cc)
+            .chain(&h.bcc)
+            .map(|a| a.addr.clone())
+            .collect(),
+        remote_ip: peer,
+        auth_user: user,
+        ..Default::default()
+    };
+    let ingest = api.0.ingest.clone();
+    match tokio::task::spawn_blocking(move || ingest.store_raw(envelope, &raw, "import")).await {
+        Ok(Ok(id)) if id.is_empty() => crate::api::json(StatusCode::OK, &Imported { id: None }),
+        Ok(Ok(id)) => crate::api::json(StatusCode::CREATED, &Imported { id: Some(id) }),
+        Ok(Err(reply)) if reply.starts_with("452") => {
+            problem(StatusCode::INSUFFICIENT_STORAGE, reply)
+        }
+        Ok(Err(reply)) if reply.starts_with("451") => {
+            problem(StatusCode::SERVICE_UNAVAILABLE, reply)
+        }
+        Ok(Err(reply)) => problem(StatusCode::INTERNAL_SERVER_ERROR, reply),
+        Err(_) => problem(StatusCode::INTERNAL_SERVER_ERROR, "internal error"),
+    }
 }
 
 const WAIT_DEFAULT_MS: u64 = 10_000;

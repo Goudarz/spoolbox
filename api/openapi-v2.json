@@ -9,6 +9,23 @@
   "servers": [{ "url": "/", "description": "Prefix with --webroot when set" }],
   "security": [{}, { "basicAuth": [] }],
   "paths": {
+    "/api/v2/messages": {
+      "post": {
+        "summary": "Store a raw message",
+        "description": "Stores an RFC 5322 message exactly as given (source `import`). The envelope comes from the headers: From is the sender, To/Cc/Bcc are the recipients.",
+        "operationId": "importMessage",
+        "tags": ["messages"],
+        "x-spoolbox-phase": "P6",
+        "requestBody": { "required": true, "content": { "message/rfc822": { "schema": { "type": "string" } } } },
+        "responses": {
+          "201": { "description": "Stored", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" } } } } } },
+          "200": { "description": "Dropped as a duplicate (`--ignore-duplicate-ids`); `id` is null", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "null" } } } } } },
+          "400": { "$ref": "#/components/responses/Problem" },
+          "413": { "$ref": "#/components/responses/Problem" },
+          "507": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
     "/api/v2/wait": {
       "post": {
         "summary": "Wait for a matching message",

@@ -1,6 +1,8 @@
 mod cli;
+mod client;
 mod logging;
 mod readyz;
+mod remote;
 mod sample;
 
 use std::process::ExitCode;
@@ -34,6 +36,9 @@ fn main() -> ExitCode {
         Some(("readyz", m)) => runtime.block_on(run_readyz(m)),
         Some(("reindex", m)) => runtime.block_on(run_reindex(m)),
         Some(("send-sample", m)) => runtime.block_on(run_send_sample(m)),
+        Some(("wait", m)) => runtime.block_on(run_wait(m)),
+        Some(("export", m)) => runtime.block_on(run_export(m)),
+        Some(("import", m)) => runtime.block_on(run_import(m)),
         _ => runtime.block_on(run_server(cli::given_flags(&matches))),
     }
 }
@@ -86,6 +91,118 @@ async fn run_readyz(m: &clap::ArgMatches) -> ExitCode {
     let https = m.get_flag("https") || s.tls.is_some();
     match readyz::check(s.listen.connect_addr(), &s.webroot, wait, https).await {
         Ok(()) => ExitCode::SUCCESS,
+        Err(e) => fail(EXIT_RUNTIME, &e),
+    }
+}
+
+/// A client for the server described by the config, `--listen`/`--webroot` and `--auth`.
+fn client_for(m: &clap::ArgMatches) -> Result<client::Client, ExitCode> {
+    let mut cli = Vec::new();
+    for key in ["listen", "webroot"] {
+        if let Some(v) = m.get_one::<String>(key) {
+            cli.push((key.to_string(), Some(v.clone())));
+        }
+    }
+    let loaded = spoolbox_config::load(&Sources {
+        cli,
+        env: process_env(),
+    })
+    .map_err(|e| fail(EXIT_CONFIG, &e.to_string()))?;
+    let auth = m.get_one::<String>("auth").cloned().or_else(|| {
+        std::env::var("SPOOLBOX_AUTH")
+            .ok()
+            .filter(|a| !a.is_empty())
+    });
+    if auth.as_deref().is_some_and(|a| !a.contains(':')) {
+        return Err(fail(EXIT_CONFIG, "--auth must be user:password"));
+    }
+    Ok(client::Client::new(
+        &loaded.settings.http,
+        m.get_flag("https"),
+        auth.as_deref(),
+    ))
+}
+
+async fn run_wait(m: &clap::ArgMatches) -> ExitCode {
+    let client = match client_for(m) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let raw = m.get_one::<String>("timeout").map_or("30s", String::as_str);
+    let Some(timeout) = readyz::parse_duration(raw) else {
+        return fail(
+            EXIT_CONFIG,
+            &format!("invalid --timeout {raw:?} (expected e.g. 500ms, 30s, 2m)"),
+        );
+    };
+    let query = m.get_one::<String>("query").map_or("", String::as_str);
+    match remote::wait(&client, query, timeout, m.get_one::<i64>("since").copied()).await {
+        Ok(remote::WaitResult::Found(summary)) => {
+            if m.get_flag("json") {
+                println!("{summary}");
+            } else {
+                println!("{}", summary["id"].as_str().unwrap_or_default());
+            }
+            ExitCode::SUCCESS
+        }
+        Ok(remote::WaitResult::TimedOut) => fail(
+            EXIT_RUNTIME,
+            &format!("no message matching {query:?} within {raw}"),
+        ),
+        Err(e) => fail(EXIT_RUNTIME, &e),
+    }
+}
+
+async fn run_export(m: &clap::ArgMatches) -> ExitCode {
+    let client = match client_for(m) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let out = std::path::PathBuf::from(m.get_one::<String>("out").map_or(".", String::as_str));
+    let format = if m.get_one::<String>("format").map(String::as_str) == Some("mbox") {
+        remote::Format::Mbox
+    } else {
+        remote::Format::Eml
+    };
+    match remote::export(
+        &client,
+        m.get_one::<String>("query").map(String::as_str),
+        &out,
+        format,
+    )
+    .await
+    {
+        Ok(n) => {
+            eprintln!("exported {n} message(s) to {}", out.display());
+            ExitCode::SUCCESS
+        }
+        Err(e) => fail(EXIT_RUNTIME, &e),
+    }
+}
+
+async fn run_import(m: &clap::ArgMatches) -> ExitCode {
+    let client = match client_for(m) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let paths: Vec<std::path::PathBuf> = m
+        .get_many::<String>("paths")
+        .into_iter()
+        .flatten()
+        .map(std::path::PathBuf::from)
+        .collect();
+    match remote::import(&client, &paths).await {
+        Ok((imported, skipped)) => {
+            eprintln!(
+                "imported {imported} message(s){}",
+                if skipped > 0 {
+                    format!(", {skipped} duplicate(s) skipped")
+                } else {
+                    String::new()
+                }
+            );
+            ExitCode::SUCCESS
+        }
         Err(e) => fail(EXIT_RUNTIME, &e),
     }
 }

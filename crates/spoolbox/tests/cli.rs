@@ -180,3 +180,112 @@ fn mp_env_alias_is_applied() {
     );
     assert!(String::from_utf8_lossy(&out.stderr).contains("0.0.0.0"));
 }
+
+#[test]
+fn wait_import_and_export() {
+    let srv = start(&[]);
+    let dir = tempfile::tempdir().expect("tempdir");
+    let eml = dir.path().join("hello.eml");
+    std::fs::write(
+        &eml,
+        "From: a@example.com\r\nTo: b@example.com\r\nSubject: hello cli\r\n\r\nFrom the start\r\n",
+    )
+    .expect("write");
+
+    // A waiter started before the message arrives sees it.
+    let waiter = bin()
+        .args([
+            "wait",
+            "subject:hello",
+            "--timeout",
+            "10s",
+            "--listen",
+            &srv.addr,
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn wait");
+    std::thread::sleep(Duration::from_millis(500));
+    let imported = run(
+        &["import", eml.to_str().expect("path"), "--listen", &srv.addr],
+        &[],
+    );
+    assert!(
+        imported.status.success(),
+        "{}",
+        String::from_utf8_lossy(&imported.stderr)
+    );
+    let out = waiter.wait_with_output().expect("wait output");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let id = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(id.len(), 26, "{id}");
+
+    let timeout = run(
+        &[
+            "wait",
+            "subject:never",
+            "--timeout",
+            "300ms",
+            "--listen",
+            &srv.addr,
+        ],
+        &[],
+    );
+    assert_eq!(timeout.status.code(), Some(1));
+
+    let eml_dir = dir.path().join("out");
+    let out = run(
+        &[
+            "export",
+            eml_dir.to_str().expect("path"),
+            "--listen",
+            &srv.addr,
+        ],
+        &[],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let saved = std::fs::read(eml_dir.join(format!("{id}.eml"))).expect("exported file");
+    assert_eq!(
+        saved,
+        std::fs::read(&eml).expect("original"),
+        "byte-exact round trip"
+    );
+
+    let mbox = dir.path().join("all.mbox");
+    let out = run(
+        &[
+            "export",
+            mbox.to_str().expect("path"),
+            "--format",
+            "mbox",
+            "--listen",
+            &srv.addr,
+        ],
+        &[],
+    );
+    assert!(out.status.success());
+    let text = std::fs::read_to_string(&mbox).expect("mbox");
+    assert!(
+        text.starts_with("From ") && text.contains("\n>From the start\n"),
+        "{text}"
+    );
+    let again = run(
+        &[
+            "import",
+            mbox.to_str().expect("path"),
+            "--listen",
+            &srv.addr,
+        ],
+        &[],
+    );
+    assert!(String::from_utf8_lossy(&again.stderr).contains("imported 1 message"));
+}

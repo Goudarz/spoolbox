@@ -2,6 +2,35 @@ use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use spoolbox_config::registry::{FLAGS, Status};
 
+/// Options of the commands that talk to a running server.
+fn client_args(cmd: Command) -> Command {
+    cmd.arg(
+        Arg::new("listen")
+            .long("listen")
+            .short('l')
+            .value_name("ADDR")
+            .help("HTTP address of the server (default: from config/env)"),
+    )
+    .arg(
+        Arg::new("webroot")
+            .long("webroot")
+            .value_name("PATH")
+            .help("Webroot of the server (default: from config/env)"),
+    )
+    .arg(
+        Arg::new("https")
+            .long("https")
+            .action(ArgAction::SetTrue)
+            .help("The server uses HTTPS (implied by --ui-tls-cert in the config)"),
+    )
+    .arg(
+        Arg::new("auth")
+            .long("auth")
+            .value_name("USER:PASSWORD")
+            .help("Credentials for a server with --ui-auth-file (or SPOOLBOX_AUTH)"),
+    )
+}
+
 pub fn command() -> Command {
     let server_args = FLAGS.iter().map(|f| {
         let mut arg = Arg::new(f.long).long(f.long);
@@ -63,6 +92,26 @@ pub fn command() -> Command {
                 ),
         )
         .subcommand(Command::new("version").about("Print version information"))
+        .subcommand(client_args(
+            Command::new("wait")
+                .about("Wait until a message matching a search arrives; prints its ID (exit code 1 on timeout)")
+                .arg(Arg::new("query").required(true).value_name("QUERY").help("Search, e.g. 'to:alice@example.com subject:verify'"))
+                .arg(Arg::new("timeout").long("timeout").short('t').value_name("DURATION").default_value("30s").help("How long to wait, e.g. 10s, 2m"))
+                .arg(Arg::new("since").long("since").value_name("SEQ").value_parser(clap::value_parser!(i64)).help("Only mail after this event cursor (GET api/v2/events/cursor)"))
+                .arg(Arg::new("json").long("json").action(ArgAction::SetTrue).help("Print the message summary as JSON")),
+        ))
+        .subcommand(client_args(
+            Command::new("export")
+                .about("Save messages from a running server as .eml files or one mbox file")
+                .arg(Arg::new("out").required(true).value_name("PATH").help("Directory for .eml files, or file for --format mbox"))
+                .arg(Arg::new("query").long("query").short('q').value_name("QUERY").help("Only messages matching this search"))
+                .arg(Arg::new("format").long("format").value_parser(["eml", "mbox"]).default_value("eml")),
+        ))
+        .subcommand(client_args(
+            Command::new("import")
+                .about("Load .eml files, directories of them, or mbox files into a running server")
+                .arg(Arg::new("paths").required(true).num_args(1..).value_name("PATH")),
+        ))
         .subcommand(
             Command::new("reindex")
                 .about("Rebuild the MIME index and full-text search of every message in a database")

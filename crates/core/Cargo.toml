@@ -11,6 +11,7 @@ publish.workspace = true
 
 [dependencies]
 getrandom.workspace = true
+regex.workspace = true
 thiserror.workspace = true
 
 [lints]

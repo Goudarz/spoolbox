@@ -125,8 +125,7 @@ flowchart LR
 | MCP (P6-T10) | ✅ `POST /mcp` (JSON-RPC 2.0، Streamable HTTP، بررسی Origin) + `spoolbox mcp` (پل stdio)؛ ابزارها: list_messages، wait_for_message، event_cursor، get_message (بدون side effect)، get_codes، get_links، get_raw؛ `delete_messages` فقط با `--mcp-allow-delete` و هرگز با query خالی |
 | testkit in-process (P6-T11) | ✅ `spoolbox-testkit` با feature `server`: `TestServer` (SMTP، ذخیره، index، HTTP روی پورت‌های تصادفی)، `wait_for`، `raw`، `chaos`، تابع `send`؛ نمونه در `crates/spoolbox/tests/testkit.rs` در CI |
 
-**یافته در حین کار:** heredocهای Python در این محیط escapeها (`
-`) را به خط جدید واقعی تبدیل می‌کردند و دو تست را خراب کردند؛ پیدا و اصلاح شد (کد محصول تحت تأثیر نبود).
+**یافته در حین کار:** اسکریپت‌های ویرایش Python در این محیط دنباله‌های escape را به خط جدید واقعی تبدیل می‌کردند و دو تست را خراب کردند؛ پیدا و اصلاح شد (کد محصول تحت تأثیر نبود).
 
 ### Taskهای افزوده
 | Task | قابلیت | ورودی | خروجی | پذیرش |

@@ -18,6 +18,34 @@ struct FileConfig {
     network: Option<Network>,
     log: Option<Log>,
     chaos: Option<ChaosFile>,
+    webhook: Option<Webhook>,
+    relay: Option<Relay>,
+    forward: Option<Forward>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct Webhook {
+    url: Option<String>,
+    limit_per_second: Option<u64>,
+    delay_seconds: Option<u64>,
+    secret: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct Relay {
+    /// YAML file with the server settings.
+    config: Option<String>,
+    all: Option<bool>,
+    matching: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct Forward {
+    /// YAML file with the server settings.
+    config: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -116,6 +144,8 @@ struct TagRuleFile {
 #[serde(default, deny_unknown_fields)]
 struct Network {
     allow_unauthenticated_network: Option<bool>,
+    allow_internal_http_requests: Option<bool>,
+    allow_untrusted_tls: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -386,6 +416,37 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
         "network.allow_unauthenticated_network",
         flag(network.allow_unauthenticated_network),
     );
+    push(
+        Key::AllowInternalHttpRequests,
+        "network.allow_internal_http_requests",
+        flag(network.allow_internal_http_requests),
+    );
+    push(
+        Key::AllowUntrustedTls,
+        "network.allow_untrusted_tls",
+        flag(network.allow_untrusted_tls),
+    );
+
+    let webhook = cfg.webhook.unwrap_or_default();
+    push(Key::WebhookUrl, "webhook.url", webhook.url);
+    push(
+        Key::WebhookLimit,
+        "webhook.limit_per_second",
+        num(webhook.limit_per_second),
+    );
+    push(
+        Key::WebhookDelay,
+        "webhook.delay_seconds",
+        num(webhook.delay_seconds),
+    );
+    push(Key::WebhookSecret, "webhook.secret", webhook.secret);
+
+    let relay = cfg.relay.unwrap_or_default();
+    push(Key::SmtpRelayConfig, "relay.config", relay.config);
+    push(Key::SmtpRelayAll, "relay.all", flag(relay.all));
+    push(Key::SmtpRelayMatching, "relay.matching", relay.matching);
+    let forward = cfg.forward.unwrap_or_default();
+    push(Key::SmtpForwardConfig, "forward.config", forward.config);
 
     let log = cfg.log.unwrap_or_default();
     push(Key::LogLevel, "log.level", log.level);

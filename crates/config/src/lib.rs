@@ -111,6 +111,27 @@ pub fn load(sources: &Sources) -> Result<Loaded, ConfigError> {
         }
     }
 
+    for (name, key) in native_target_env() {
+        let Some(&value) = env.get(name.as_str()) else {
+            continue;
+        };
+        let origin = Origin::Env(name);
+        let value = match key {
+            Key::Relay(f) | Key::Forward(f) if f.is_bool() => match key::parse_bool(value) {
+                Some(on) => on.to_string(),
+                None => {
+                    return Err(ConfigError::InvalidValue {
+                        origin,
+                        value: value.to_string(),
+                        reason: "expected true or false".into(),
+                    });
+                }
+            },
+            _ => value.to_string(),
+        };
+        b.apply(key, &value, &origin)?;
+    }
+
     for (long, value) in &sources.cli {
         let spec = flag_by_long(long).ok_or_else(|| missing(long))?;
         assign(
@@ -124,6 +145,25 @@ pub fn load(sources: &Sources) -> Result<Loaded, ConfigError> {
 
     warn_unknown_env(&env, &mut diags);
     finish(b, config_file, diags)
+}
+
+/// `SPOOLBOX_SMTP_RELAY_*` and `SPOOLBOX_SMTP_FORWARD_*`: the relay settings have no flags.
+fn native_target_env() -> impl Iterator<Item = (String, Key)> {
+    COMPAT_ENV
+        .iter()
+        .filter_map(|alias| match alias.target {
+            EnvTarget::Only(Status::Active(key @ (Key::Relay(_) | Key::Forward(_)))) => {
+                Some((alias.name.replacen("MP_", NATIVE_ENV_PREFIX, 1), key))
+            }
+            _ => None,
+        })
+        .chain(
+            [
+                ("RELAY", Key::Relay(RelayField::RateLimit)),
+                ("FORWARD", Key::Forward(RelayField::RateLimit)),
+            ]
+            .map(|(what, key)| (format!("{NATIVE_ENV_PREFIX}SMTP_{what}_RATE_LIMIT"), key)),
+        )
 }
 
 fn missing(long: &str) -> ConfigError {
@@ -198,6 +238,7 @@ fn warn_unknown_env(env: &HashMap<&str, &str>, diags: &mut Vec<Diagnostic>) {
         .iter()
         .filter(|f| matches!(f.status, Status::Active(_)))
         .map(|f| native_env_name(f.long))
+        .chain(native_target_env().map(|(name, _)| name))
         .chain([CONFIG_ENV.to_string()])
         .collect();
     let mut names: Vec<&&str> = env.keys().collect();

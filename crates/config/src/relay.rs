@@ -1,6 +1,6 @@
 //! Outgoing SMTP for relaying and forwarding, from a YAML file (`--smtp-relay-config`,
-//! `--smtp-forward-config`) and `MP_SMTP_RELAY_*` / `MP_SMTP_FORWARD_*`. Variables win over the
-//! file. Everything is off until a host is configured.
+//! `--smtp-forward-config`) and `SPOOLBOX_SMTP_RELAY_*` / `SPOOLBOX_SMTP_FORWARD_*` or their
+//! `MP_*` equivalents. Variables win over the file. Everything is off until a host is configured.
 
 use std::path::Path;
 
@@ -32,6 +32,17 @@ pub enum Field {
     BlockedRecipients,
     PreserveMessageIds,
     To,
+    /// Messages per minute. No `MP_*` variable.
+    RateLimit,
+}
+
+impl Field {
+    pub(crate) fn is_bool(self) -> bool {
+        matches!(
+            self,
+            Field::StartTls | Field::Tls | Field::AllowInsecure | Field::PreserveMessageIds
+        )
+    }
 }
 
 #[derive(Deserialize)]
@@ -102,6 +113,13 @@ impl RawTarget {
             Field::BlockedRecipients => self.blocked_recipients = text(),
             Field::PreserveMessageIds => self.preserve_message_ids = flag(),
             Field::To => self.to = Some(Addresses::One(value.to_string())),
+            Field::RateLimit => {
+                self.rate_limit = Some(
+                    value
+                        .parse()
+                        .map_err(|_| "expected messages per minute (0 = no limit)")?,
+                );
+            }
         }
         Ok(())
     }

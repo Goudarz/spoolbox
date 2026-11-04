@@ -870,3 +870,76 @@ fn forward_needs_addresses() {
         assert!(err.to_string().contains(expected), "{err}");
     }
 }
+
+#[test]
+fn native_relay_variables_win_over_compatibility_ones() {
+    let s = load_ok(Sources {
+        cli: vec![],
+        env: env(&[
+            ("MP_SMTP_RELAY_HOST", "from-mp.example.com"),
+            ("SPOOLBOX_SMTP_RELAY_HOST", "from-native.example.com"),
+            ("SPOOLBOX_SMTP_RELAY_STARTTLS", "on"),
+            ("SPOOLBOX_SMTP_RELAY_RATE_LIMIT", "7"),
+            ("SPOOLBOX_SMTP_FORWARD_HOST", "forward.example.com"),
+            ("SPOOLBOX_SMTP_FORWARD_TO", "team@example.com"),
+        ]),
+    });
+    assert!(
+        s.diagnostics.iter().all(|d| !d.message.contains("unknown")),
+        "{:?}",
+        s.diagnostics
+    );
+    let target = s.settings.relay.target.expect("target");
+    assert_eq!(target.host, "from-native.example.com");
+    assert_eq!(target.security, SmtpSecurity::StartTls);
+    assert_eq!(target.limit_per_minute, 7);
+    assert_eq!(s.settings.forward.to, ["team@example.com"]);
+
+    // A mistyped boolean is an error, not a silently disabled TLS.
+    let err = load(&Sources {
+        cli: vec![],
+        env: env(&[
+            ("SPOOLBOX_SMTP_RELAY_HOST", "h"),
+            ("SPOOLBOX_SMTP_RELAY_TLS", "maybe"),
+        ]),
+    })
+    .expect_err("bad boolean");
+    assert!(err.to_string().contains("true or false"), "{err}");
+    // No such option: reported rather than ignored.
+    let l = load_ok(Sources {
+        cli: vec![],
+        env: env(&[("SPOOLBOX_SMTP_RELAY_HOTS", "h")]),
+    });
+    assert!(
+        l.diagnostics.iter().any(|d| d.message.contains("HOTS")),
+        "{:?}",
+        l.diagnostics
+    );
+}
+
+#[test]
+fn relay_webhook_and_network_in_the_config_file() {
+    let mut yaml = tempfile::NamedTempFile::new().expect("tempfile");
+    writeln!(yaml, "host: smtp.example.com\nallowed-recipients: '@a$'").expect("write");
+    let mut toml = tempfile::NamedTempFile::new().expect("tempfile");
+    // Literal strings, so Windows paths need no escaping.
+    writeln!(
+        toml,
+        "[relay]\nconfig = '{}'\nall = true\n[forward]\n[webhook]\nurl = 'https://hooks.example.com/'\nlimit_per_second = 3\ndelay_seconds = 4\nsecret = 'k'\n[network]\nallow_internal_http_requests = true\nallow_untrusted_tls = true",
+        yaml.path().display()
+    )
+    .expect("write");
+    let path = toml.path().to_string_lossy().to_string();
+    let s = load_ok(Sources {
+        cli: cli(&[("config", Some(&path))]),
+        env: vec![],
+    })
+    .settings;
+    assert!(s.relay.all && s.relay.target.is_some());
+    assert_eq!(s.webhook.url.as_deref(), Some("https://hooks.example.com/"));
+    assert_eq!(
+        (s.webhook.limit_per_second, s.webhook.delay),
+        (3, Duration::from_secs(4))
+    );
+    assert!(s.egress.allow_internal && s.egress.allow_untrusted_tls);
+}

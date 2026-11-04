@@ -999,6 +999,8 @@ async fn webhooks_post_signed_summaries() {
             limit_per_second: 0,
             secret: Some("topsecret".into()),
             label: "dev".into(),
+            allow_internal: false,
+            allow_untrusted_tls: false,
         },
         stop,
     );

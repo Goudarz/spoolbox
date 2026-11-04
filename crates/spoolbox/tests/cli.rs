@@ -349,6 +349,27 @@ fn http_get(addr: &str, path: &str) -> (u16, String) {
 }
 
 #[test]
+fn refuses_a_plain_http_webhook_on_the_network() {
+    let out = run(
+        &[
+            "--listen",
+            "127.0.0.1:0",
+            "--smtp",
+            "127.0.0.1:0",
+            "--webhook-url",
+            "http://hooks.example.com/mail",
+        ],
+        &[],
+    );
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("must use https"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
 fn webhook_url_makes_the_server_post_new_messages() {
     use std::io::{Read, Write};
 

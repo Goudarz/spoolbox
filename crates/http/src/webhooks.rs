@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use spoolbox_app::egress::Egress;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use url::Url;
+use url::{Host, Url};
 
 use crate::api::Api;
 use crate::v1::summaries;
@@ -16,6 +16,7 @@ use crate::v1::summaries;
 /// Attempts before a webhook is given up (kept as a failed job).
 const MAX_ATTEMPTS: i64 = 8;
 const LEASE: Duration = Duration::from_secs(120);
+const TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
 pub struct WebhookOptions {
@@ -25,6 +26,37 @@ pub struct WebhookOptions {
     pub secret: Option<String>,
     /// Sent as `X-Spoolbox-Label`.
     pub label: String,
+    /// `--allow-internal-http-requests`: also allow plain http and internal addresses.
+    pub allow_internal: bool,
+    /// `--allow-untrusted-tls`.
+    pub allow_untrusted_tls: bool,
+}
+
+impl WebhookOptions {
+    /// Only https or this machine by default, so summaries of captured mail stay encrypted
+    /// on the network and an address cannot silently point inside the network.
+    pub fn check(&self) -> Result<(Url, Egress), String> {
+        let url = Url::parse(&self.url).map_err(|e| format!("invalid webhook URL: {e}"))?;
+        let loopback = match url.host() {
+            Some(Host::Domain(name)) => name.eq_ignore_ascii_case("localhost"),
+            Some(Host::Ipv4(ip)) => ip.is_loopback(),
+            Some(Host::Ipv6(ip)) => ip.is_loopback(),
+            None => false,
+        };
+        if url.scheme() != "https" && !loopback && !self.allow_internal {
+            return Err(
+                "the webhook URL must use https unless it is on this machine (--allow-internal-http-requests allows plain http)"
+                    .into(),
+            );
+        }
+        let egress = Egress {
+            allow_internal: self.allow_internal || loopback,
+            allow_untrusted_tls: self.allow_untrusted_tls,
+            timeout: TIMEOUT,
+            ..Egress::default()
+        };
+        Ok((url, egress))
+    }
 }
 
 /// HMAC-SHA256 (RFC 2104).
@@ -63,14 +95,12 @@ pub fn spawn_webhooks(
     mut stop: watch::Receiver<bool>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let Ok(url) = Url::parse(&opts.url) else {
-            tracing::error!("invalid webhook URL");
-            return;
-        };
-        // The URL is the operator's choice, so internal addresses (e.g. another container) are allowed.
-        let egress = Egress {
-            allow_internal: true,
-            ..Egress::default()
+        let (url, egress) = match opts.check() {
+            Ok(checked) => checked,
+            Err(e) => {
+                tracing::error!("{e}");
+                return;
+            }
         };
         let gap = match opts.limit_per_second {
             0 => Duration::ZERO,
@@ -192,5 +222,43 @@ mod tests {
             "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
         );
         assert!(signature("k", 1700000000, b"{}").starts_with("t=1700000000,v1="));
+    }
+
+    fn opts(url: &str, allow_internal: bool) -> WebhookOptions {
+        WebhookOptions {
+            url: url.into(),
+            limit_per_second: 0,
+            secret: None,
+            label: String::new(),
+            allow_internal,
+            allow_untrusted_tls: false,
+        }
+    }
+
+    #[test]
+    fn only_https_or_this_machine_by_default() {
+        for (url, internal_reachable) in [
+            ("http://127.0.0.1:9000/h", true),
+            ("http://[::1]:9000/h", true),
+            ("http://LOCALHOST/h", true),
+            ("https://hooks.example.com/h", false),
+            ("https://10.0.0.5/h", false),
+        ] {
+            let (_, egress) = opts(url, false).check().expect(url);
+            assert_eq!(egress.allow_internal, internal_reachable, "{url}");
+            assert_eq!(egress.timeout, TIMEOUT);
+        }
+        for url in [
+            "http://hooks.example.com/h",
+            "http://10.0.0.5/h",
+            "http://localhost.example.com/h",
+            "http://127.0.0.1.example.com/h",
+        ] {
+            assert!(opts(url, false).check().is_err(), "{url}");
+        }
+        let (_, egress) = opts("http://receiver:8080/h", true)
+            .check()
+            .expect("opt in");
+        assert!(egress.allow_internal);
     }
 }

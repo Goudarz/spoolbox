@@ -313,6 +313,21 @@ async fn run_server(cli: Vec<(String, Option<String>)>) -> ExitCode {
 
 async fn serve(s: &Settings) -> Result<(), String> {
     tracing::info!(version = spoolbox_core::VERSION, "starting spoolbox");
+    let webhook = s
+        .webhook
+        .url
+        .clone()
+        .map(|url| spoolbox_http::WebhookOptions {
+            url,
+            limit_per_second: s.webhook.limit_per_second,
+            secret: s.webhook.secret.clone(),
+            label: s.label.clone(),
+            allow_internal: s.egress.allow_internal,
+            allow_untrusted_tls: s.egress.allow_untrusted_tls,
+        });
+    if let Some(opts) = &webhook {
+        opts.check()?;
+    }
     let settings = s.clone();
     let core = tokio::task::spawn_blocking(move || spoolbox_app::Core::open(&settings))
         .await
@@ -399,18 +414,8 @@ async fn serve(s: &Settings) -> Result<(), String> {
         .with_transcripts(core.transcripts.clone())
         .with_mcp_delete(s.http.mcp_allow_delete);
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());
-    let webhook_task = s.webhook.url.clone().map(|url| {
-        spoolbox_http::spawn_webhooks(
-            api.clone(),
-            spoolbox_http::WebhookOptions {
-                url,
-                limit_per_second: s.webhook.limit_per_second,
-                secret: s.webhook.secret.clone(),
-                label: s.label.clone(),
-            },
-            stop_rx.clone(),
-        )
-    });
+    let webhook_task =
+        webhook.map(|opts| spoolbox_http::spawn_webhooks(api.clone(), opts, stop_rx.clone()));
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);
     let shutdown_ready = ready.clone();

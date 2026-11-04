@@ -1,0 +1,25 @@
+[package]
+name = "spoolbox-pop3"
+description = "POP3 server (RFC 1939 with TOP, UIDL, CAPA and STLS): protocol state machine and connection handling"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+spoolbox-auth.workspace = true
+rustls.workspace = true
+tokio = { workspace = true, features = ["net", "io-util", "time", "rt", "sync", "macros"] }
+tokio-rustls.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+spoolbox-smtp.workspace = true
+tokio = { workspace = true, features = ["net", "io-util", "time", "rt-multi-thread", "macros", "sync"] }
+
+[lints]
+workspace = true

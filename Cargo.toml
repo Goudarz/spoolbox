@@ -10,6 +10,7 @@ members = [
     "crates/search",
     "crates/auth",
     "crates/smtp",
+    "crates/pop3",
     "crates/store",
     "crates/app",
     "crates/spoolbox",
@@ -51,6 +52,7 @@ sha1 = { version = "0.11.0", default-features = false }
 sha2 = { version = "0.11.0", default-features = false }
 proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 spoolbox-smtp = { path = "crates/smtp" }
+spoolbox-pop3 = { path = "crates/pop3" }
 spoolbox-store = { path = "crates/store" }
 spoolbox-app = { path = "crates/app" }
 base64 = { version = "0.23.1", default-features = false, features = ["std"] }

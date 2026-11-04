@@ -4,6 +4,7 @@ pub mod egress;
 mod ingest;
 pub mod jobs;
 pub mod maintenance;
+pub mod pop3;
 pub mod relay;
 
 use std::collections::HashSet;

@@ -567,6 +567,84 @@ fn starttls_relay_checks_the_certificate_unless_told_otherwise() {
 }
 
 #[test]
+fn pop3_needs_users() {
+    let out = run(&["--pop3", "127.0.0.1:0"], &[]);
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("needs users"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn pop3_reads_and_deletes_what_smtp_received() {
+    use std::io::Write;
+
+    let listen = free_port();
+    let mut cmd = bin();
+    cmd.env("MP_POP3_AUTH", "dev:secret");
+    let srv = start_with(cmd, &["--pop3", &listen]);
+    let sent = run(
+        &["send-sample", "--smtp", &srv.smtp, "--sample", "plain"],
+        &[],
+    );
+    assert!(
+        sent.status.success(),
+        "{}",
+        String::from_utf8_lossy(&sent.stderr)
+    );
+    let summary = wait_for_messages(&srv.addr, 1);
+    let id = summary["ID"].as_str().expect("id").to_string();
+
+    let stream = std::net::TcpStream::connect(&listen).expect("connect");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .expect("timeout");
+    let mut writer = stream.try_clone().expect("clone");
+    let mut reader = BufReader::new(stream);
+    let mut line = move || {
+        let mut text = String::new();
+        reader.read_line(&mut text).expect("read");
+        text.trim_end().to_string()
+    };
+    assert!(line().starts_with("+OK"));
+    let mut talk = |command: &str, line: &mut dyn FnMut() -> String| {
+        writer
+            .write_all(format!("{command}\r\n").as_bytes())
+            .expect("write");
+        line()
+    };
+    assert!(talk("USER dev", &mut line).starts_with("+OK"));
+    assert_eq!(
+        talk("PASS wrong", &mut line),
+        "-ERR invalid user name or password"
+    );
+    assert!(talk("USER dev", &mut line).starts_with("+OK"));
+    assert!(talk("PASS secret", &mut line).starts_with("+OK 1 messages"));
+    assert_eq!(talk("UIDL 1", &mut line), format!("+OK 1 {id}"));
+    assert!(talk("RETR 1", &mut line).starts_with("+OK"));
+    let mut message = Vec::new();
+    loop {
+        let text = line();
+        if text == "." {
+            break;
+        }
+        message.push(text);
+    }
+    assert!(
+        message.iter().any(|l| l.starts_with("Subject:")),
+        "{message:?}"
+    );
+    let (_, body) = http_get(&srv.addr, "/api/v1/messages");
+    assert!(body.contains("\"Read\":true"), "RETR marks it read: {body}");
+    assert!(talk("DELE 1", &mut line).starts_with("+OK"));
+    wait_for_messages(&srv.addr, 1);
+    assert_eq!(talk("QUIT", &mut line), "+OK bye");
+    wait_for_messages(&srv.addr, 0);
+}
+
+#[test]
 fn smtp_transcripts_are_opt_in() {
     let off = start(&[]);
     assert_eq!(http_get(&off.addr, "/api/v2/transcripts").0, 404);

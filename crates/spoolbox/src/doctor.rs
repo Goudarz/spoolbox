@@ -178,6 +178,9 @@ pub async fn run(loaded: &Loaded) -> Vec<Check> {
         .await,
     );
     out.push(port("smtp", s.smtp.listen.to_socket_addr(), None).await);
+    if let Some(pop3) = &s.pop3 {
+        out.push(port("pop3", pop3.listen.to_socket_addr(), None).await);
+    }
     out.extend(tls("http tls", s.http.tls.as_ref()));
     out.extend(tls("smtp tls", s.smtp.tls.as_ref()));
     out.push(database(s));

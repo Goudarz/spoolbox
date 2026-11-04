@@ -359,6 +359,19 @@ async fn serve(s: &Settings) -> Result<(), String> {
     let http_listener = tokio::net::TcpListener::bind(s.http.listen.to_socket_addr()).await.map_err(|e| {
         format!("cannot listen on {} for HTTP: {e} (is another mail server already running? use --listen to choose another address)", s.http.listen)
     })?;
+    let pop3 = match spoolbox_app::pop3::server(s, &core, &hostname).map_err(|e| e.to_string())? {
+        Some(server) => {
+            let addr = s.pop3.as_ref().map(|p| p.listen.to_socket_addr());
+            let listener = match addr {
+                Some(addr) => tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+                    format!("cannot listen on {addr} for POP3: {e} (use --pop3 to choose another address)")
+                })?,
+                None => return Err("POP3 is configured without an address".into()),
+            };
+            Some((server, listener))
+        }
+        None => None,
+    };
     let smtp_local = smtp_listener.local_addr().map_err(|e| e.to_string())?;
     let http_local = http_listener.local_addr().map_err(|e| e.to_string())?;
 
@@ -373,6 +386,15 @@ async fn serve(s: &Settings) -> Result<(), String> {
         },
     );
     let smtp_task = tokio::spawn(smtp.run(smtp_listener, stop_rx.clone()));
+    let pop3_task = match pop3 {
+        Some((server, listener)) => {
+            let addr = listener.local_addr().map_err(|e| e.to_string())?;
+            let tls = s.pop3.as_ref().is_some_and(|p| p.tls.is_some());
+            tracing::info!(%addr, stls = tls, "POP3 listening");
+            Some(tokio::spawn(server.run(listener, stop_rx.clone())))
+        }
+        None => None,
+    };
     let index_task = tokio::spawn(core.indexer.clone().run(stop_rx.clone()));
     let maint_task = tokio::spawn(spoolbox_app::maintenance::run(
         core.store.clone(),
@@ -447,6 +469,9 @@ async fn serve(s: &Settings) -> Result<(), String> {
             let _ = task.await;
         }
         for task in sender_tasks {
+            let _ = task.await;
+        }
+        if let Some(task) = pop3_task {
             let _ = task.await;
         }
     })

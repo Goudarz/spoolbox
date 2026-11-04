@@ -14,6 +14,7 @@ spoolbox-config.workspace = true
 spoolbox-core.workspace = true
 spoolbox-mime.workspace = true
 spoolbox-search.workspace = true
+spoolbox-pop3.workspace = true
 spoolbox-smtp.workspace = true
 spoolbox-store.workspace = true
 bytes.workspace = true

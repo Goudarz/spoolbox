@@ -4,6 +4,7 @@
 //! no-op, deprecated alias, planned feature, or removed feature.
 
 use crate::key::Key;
+use crate::relay::Field;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
@@ -510,10 +511,34 @@ pub const FLAGS: &[FlagSpec] = &[
         Active(Key::HideDeleteAllButton),
     ),
     planned("pop3", true, "P7", W),
-    planned("smtp-relay-config", true, "P7", W),
-    planned("smtp-relay-all", false, "P7", W),
-    planned("smtp-relay-matching", true, "P7", W),
-    planned("smtp-forward-config", true, "P7", W),
+    flag(
+        "smtp-relay-config",
+        None,
+        true,
+        "YAML file describing the SMTP server for relaying and message release",
+        Active(Key::SmtpRelayConfig),
+    ),
+    flag(
+        "smtp-relay-all",
+        None,
+        false,
+        "Relay every new message to its recipients (needs allowed-recipients)",
+        Active(Key::SmtpRelayAll),
+    ),
+    flag(
+        "smtp-relay-matching",
+        None,
+        true,
+        "Relay new messages to the recipients matching this regular expression",
+        Active(Key::SmtpRelayMatching),
+    ),
+    flag(
+        "smtp-forward-config",
+        None,
+        true,
+        "YAML file describing the SMTP server and addresses to forward new messages to",
+        Active(Key::SmtpForwardConfig),
+    ),
     flag(
         "tag",
         Some('t'),
@@ -586,10 +611,9 @@ const fn env_only(name: &'static str, status: Status) -> EnvAlias {
     }
 }
 
-const RELAY_ENV: Status = Planned {
-    phase: "P7",
-    on_use: W,
-};
+const NO_CRAM_MD5: Status = Removed("CRAM-MD5 is not supported; use plain or login");
+const NO_SMTP_ERRORS: Status =
+    NoOp("messages are sent on in the background, so failures are retried and logged instead");
 
 /// Compatibility environment variables (`MP_*`) and what they map to.
 pub const COMPAT_ENV: &[EnvAlias] = &[
@@ -665,35 +689,80 @@ pub const COMPAT_ENV: &[EnvAlias] = &[
     alias("MP_SMTP_RELAY_CONFIG", "smtp-relay-config"),
     alias("MP_SMTP_RELAY_ALL", "smtp-relay-all"),
     alias("MP_SMTP_RELAY_MATCHING", "smtp-relay-matching"),
-    env_only("MP_SMTP_RELAY_HOST", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_PORT", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_STARTTLS", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_TLS", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_ALLOW_INSECURE", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_AUTH", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_USERNAME", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_PASSWORD", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_SECRET", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_RETURN_PATH", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_OVERRIDE_FROM", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_ALLOWED_RECIPIENTS", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_BLOCKED_RECIPIENTS", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_PRESERVE_MESSAGE_IDS", RELAY_ENV),
-    env_only("MP_SMTP_RELAY_FWD_SMTP_ERRORS", RELAY_ENV),
+    env_only("MP_SMTP_RELAY_HOST", Active(Key::Relay(Field::Host))),
+    env_only("MP_SMTP_RELAY_PORT", Active(Key::Relay(Field::Port))),
+    env_only(
+        "MP_SMTP_RELAY_STARTTLS",
+        Active(Key::Relay(Field::StartTls)),
+    ),
+    env_only("MP_SMTP_RELAY_TLS", Active(Key::Relay(Field::Tls))),
+    env_only(
+        "MP_SMTP_RELAY_ALLOW_INSECURE",
+        Active(Key::Relay(Field::AllowInsecure)),
+    ),
+    env_only("MP_SMTP_RELAY_AUTH", Active(Key::Relay(Field::Auth))),
+    env_only(
+        "MP_SMTP_RELAY_USERNAME",
+        Active(Key::Relay(Field::Username)),
+    ),
+    env_only(
+        "MP_SMTP_RELAY_PASSWORD",
+        Active(Key::Relay(Field::Password)),
+    ),
+    env_only("MP_SMTP_RELAY_SECRET", NO_CRAM_MD5),
+    env_only(
+        "MP_SMTP_RELAY_RETURN_PATH",
+        Active(Key::Relay(Field::ReturnPath)),
+    ),
+    env_only(
+        "MP_SMTP_RELAY_OVERRIDE_FROM",
+        Active(Key::Relay(Field::OverrideFrom)),
+    ),
+    env_only(
+        "MP_SMTP_RELAY_ALLOWED_RECIPIENTS",
+        Active(Key::Relay(Field::AllowedRecipients)),
+    ),
+    env_only(
+        "MP_SMTP_RELAY_BLOCKED_RECIPIENTS",
+        Active(Key::Relay(Field::BlockedRecipients)),
+    ),
+    env_only(
+        "MP_SMTP_RELAY_PRESERVE_MESSAGE_IDS",
+        Active(Key::Relay(Field::PreserveMessageIds)),
+    ),
+    env_only("MP_SMTP_RELAY_FWD_SMTP_ERRORS", NO_SMTP_ERRORS),
     alias("MP_SMTP_FORWARD_CONFIG", "smtp-forward-config"),
-    env_only("MP_SMTP_FORWARD_HOST", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_PORT", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_STARTTLS", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_TLS", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_ALLOW_INSECURE", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_AUTH", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_USERNAME", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_PASSWORD", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_SECRET", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_RETURN_PATH", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_OVERRIDE_FROM", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_TO", RELAY_ENV),
-    env_only("MP_SMTP_FORWARD_FWD_SMTP_ERRORS", RELAY_ENV),
+    env_only("MP_SMTP_FORWARD_HOST", Active(Key::Forward(Field::Host))),
+    env_only("MP_SMTP_FORWARD_PORT", Active(Key::Forward(Field::Port))),
+    env_only(
+        "MP_SMTP_FORWARD_STARTTLS",
+        Active(Key::Forward(Field::StartTls)),
+    ),
+    env_only("MP_SMTP_FORWARD_TLS", Active(Key::Forward(Field::Tls))),
+    env_only(
+        "MP_SMTP_FORWARD_ALLOW_INSECURE",
+        Active(Key::Forward(Field::AllowInsecure)),
+    ),
+    env_only("MP_SMTP_FORWARD_AUTH", Active(Key::Forward(Field::Auth))),
+    env_only(
+        "MP_SMTP_FORWARD_USERNAME",
+        Active(Key::Forward(Field::Username)),
+    ),
+    env_only(
+        "MP_SMTP_FORWARD_PASSWORD",
+        Active(Key::Forward(Field::Password)),
+    ),
+    env_only("MP_SMTP_FORWARD_SECRET", NO_CRAM_MD5),
+    env_only(
+        "MP_SMTP_FORWARD_RETURN_PATH",
+        Active(Key::Forward(Field::ReturnPath)),
+    ),
+    env_only(
+        "MP_SMTP_FORWARD_OVERRIDE_FROM",
+        Active(Key::Forward(Field::OverrideFrom)),
+    ),
+    env_only("MP_SMTP_FORWARD_TO", Active(Key::Forward(Field::To))),
+    env_only("MP_SMTP_FORWARD_FWD_SMTP_ERRORS", NO_SMTP_ERRORS),
     alias("MP_ENABLE_CHAOS", "enable-chaos"),
     alias("MP_CHAOS_TRIGGERS", "chaos-triggers"),
     alias("MP_POP3_BIND_ADDR", "pop3"),

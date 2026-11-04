@@ -7,6 +7,7 @@ mod error;
 mod file;
 mod key;
 pub mod registry;
+mod relay;
 mod settings;
 mod suggest;
 mod tags;
@@ -16,10 +17,12 @@ use std::path::PathBuf;
 
 pub use error::{ConfigError, Diagnostic, DiagnosticLevel, Origin};
 pub use key::Key;
+pub use relay::{Field as RelayField, is_plain_address};
 pub use settings::{
-    ChaosSettings, EgressSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat, LogLevel,
-    LogSettings, MIB, NetworkSettings, Settings, SmtpSettings, StorageSettings, TagRule,
-    TagSettings, TlsSource, WebhookSettings,
+    ChaosSettings, EgressSettings, ForwardSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat,
+    LogLevel, LogSettings, MIB, NetworkSettings, RelaySettings, Settings, SmtpLogin, SmtpMechanism,
+    SmtpSecurity, SmtpSettings, SmtpTarget, StorageSettings, TagRule, TagSettings, TlsSource,
+    WebhookSettings,
 };
 
 use key::{AuthSources, Builder, parse_compat_bool};
@@ -384,6 +387,16 @@ fn finish(
     if s.smtp.auth.is_some() && !s.smtp.auth_allow_insecure && !s.smtp.implicit_tls {
         s.smtp.require_starttls = true;
     }
+    s.relay = relay::resolve_relay(
+        b.relay_config.as_deref(),
+        b.relay_env,
+        b.relay_all,
+        b.relay_matching,
+        &s.smtp.listen,
+    )
+    .map_err(|e| ConfigError::Conflict(format!("SMTP relay: {e}")))?;
+    s.forward = relay::resolve_forward(b.forward_config.as_deref(), b.forward_env, &s.smtp.listen)
+        .map_err(|e| ConfigError::Conflict(format!("SMTP forward: {e}")))?;
     if let Some((raw, origin)) = &b.cors {
         s.http.cors_origins = cors_origins(raw, origin, &mut diagnostics);
     }

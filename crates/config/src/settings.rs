@@ -19,6 +19,8 @@ pub struct Settings {
     pub chaos: ChaosSettings,
     pub webhook: WebhookSettings,
     pub egress: EgressSettings,
+    pub relay: RelaySettings,
+    pub forward: ForwardSettings,
 }
 
 /// POST a message summary for every new message.
@@ -42,6 +44,75 @@ impl std::fmt::Debug for WebhookSettings {
             .field("signed", &self.secret.is_some())
             .finish()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SmtpSecurity {
+    None,
+    StartTls,
+    Tls,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SmtpMechanism {
+    Plain,
+    Login,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct SmtpLogin {
+    pub mechanism: SmtpMechanism,
+    pub username: String,
+    pub password: String,
+}
+
+impl std::fmt::Debug for SmtpLogin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SmtpLogin")
+            .field("mechanism", &self.mechanism)
+            .field("username", &self.username)
+            .finish_non_exhaustive()
+    }
+}
+
+/// An SMTP server that messages are sent on to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SmtpTarget {
+    pub host: String,
+    pub port: u16,
+    pub security: SmtpSecurity,
+    /// Accept invalid TLS certificates, and passwords without TLS.
+    pub allow_insecure: bool,
+    pub login: Option<SmtpLogin>,
+    /// Envelope sender instead of the original one.
+    pub return_path: Option<String>,
+    /// Replaces the `From` header (and the envelope sender unless `return_path` is set).
+    pub override_from: Option<String>,
+    /// Keep `Message-ID`; by default each delivery gets a new one.
+    pub preserve_message_ids: bool,
+    /// 0 = no limit. Excess messages wait (they are not dropped).
+    pub limit_per_minute: u32,
+}
+
+/// Off unless `target` is set. Releasing through the API works as soon as it is;
+/// new messages are only sent on with `all` or `matching`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RelaySettings {
+    pub target: Option<SmtpTarget>,
+    /// Requires `allowed_recipients`.
+    pub all: bool,
+    /// Regular expression (validated): relay new messages to the recipients that match.
+    pub matching: Option<String>,
+    /// Regular expressions (validated); apply to every delivery, case-insensitively.
+    pub allowed_recipients: Option<String>,
+    pub blocked_recipients: Option<String>,
+}
+
+/// Send a copy of every new message to fixed addresses.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ForwardSettings {
+    pub target: Option<SmtpTarget>,
+    pub to: Vec<String>,
 }
 
 /// Policy for requests to URLs found in messages (link check).
@@ -265,6 +336,8 @@ impl Default for Settings {
             chaos: ChaosSettings::default(),
             webhook: WebhookSettings::default(),
             egress: EgressSettings::default(),
+            relay: RelaySettings::default(),
+            forward: ForwardSettings::default(),
             log: LogSettings {
                 level: LogLevel::Info,
                 format: LogFormat::Text,

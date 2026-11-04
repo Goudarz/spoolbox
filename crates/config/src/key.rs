@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{ConfigError, Origin};
+use crate::relay::{Field, RawTarget};
 use crate::settings::{HIDEABLE_EXTENSIONS, LogFormat, LogLevel, MIB, Settings};
 
 /// A setting that can be assigned from a string by any configuration source.
@@ -72,6 +73,14 @@ pub enum Key {
     WebhookSecret,
     AllowInternalHttpRequests,
     AllowUntrustedTls,
+    SmtpRelayConfig,
+    SmtpRelayAll,
+    SmtpRelayMatching,
+    SmtpForwardConfig,
+    /// `MP_SMTP_RELAY_*`.
+    Relay(Field),
+    /// `MP_SMTP_FORWARD_*`.
+    Forward(Field),
 }
 
 impl Key {
@@ -101,6 +110,7 @@ impl Key {
                 | Key::McpAllowDelete
                 | Key::AllowInternalHttpRequests
                 | Key::AllowUntrustedTls
+                | Key::SmtpRelayAll
         )
     }
 }
@@ -124,6 +134,13 @@ pub(crate) struct Builder {
     /// `--tag` rules and the `--tags-config` file, resolved in `finish`.
     pub tag_spec: Option<(String, Origin)>,
     pub tags_config: Option<(String, Origin)>,
+    /// Relay and forward settings, combined with their files in `finish`.
+    pub relay_config: Option<String>,
+    pub relay_env: RawTarget,
+    pub relay_all: bool,
+    pub relay_matching: Option<String>,
+    pub forward_config: Option<String>,
+    pub forward_env: RawTarget,
 }
 
 /// An htpasswd file and/or inline entries; the file wins when both are set.
@@ -311,6 +328,14 @@ impl Builder {
             }
             Key::WebhookSecret => s.webhook.secret = (!v.is_empty()).then(|| v.to_string()),
             Key::TagsConfig => self.tags_config = non_empty(v, origin),
+            Key::SmtpRelayConfig => self.relay_config = (!v.is_empty()).then(|| v.to_string()),
+            Key::SmtpForwardConfig => self.forward_config = (!v.is_empty()).then(|| v.to_string()),
+            Key::SmtpRelayMatching => self.relay_matching = (!v.is_empty()).then(|| v.to_string()),
+            Key::SmtpRelayAll => {
+                self.relay_all = parse_bool(v).ok_or_else(|| invalid("expected true or false"))?
+            }
+            Key::Relay(field) => self.relay_env.set(field, v).map_err(invalid)?,
+            Key::Forward(field) => self.forward_env.set(field, v).map_err(invalid)?,
             Key::ChaosTriggers => {
                 if !v.is_empty() {
                     s.chaos.triggers =

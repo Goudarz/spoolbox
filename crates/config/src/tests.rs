@@ -122,21 +122,13 @@ fn security_relevant_planned_options_refuse_to_start() {
 fn harmless_planned_options_warn() {
     let l = load_ok(Sources {
         cli: cli(&[("enable-prometheus", Some("true"))]),
-        env: env(&[("MP_SMTP_RELAY_PASSWORD", "s3cret")]),
+        env: env(&[]),
     });
     let text: Vec<&str> = l.diagnostics.iter().map(|d| d.message.as_str()).collect();
     assert!(
         text.iter()
             .any(|m| m.contains("--enable-prometheus") && m.contains("P7")),
         "{text:?}"
-    );
-    assert!(
-        text.iter().any(|m| m.contains("MP_SMTP_RELAY_PASSWORD")),
-        "{text:?}"
-    );
-    assert!(
-        text.iter().all(|m| !m.contains("s3cret")),
-        "values must never be logged: {text:?}"
     );
 }
 
@@ -694,5 +686,187 @@ fn webhook_options() {
         })
         .expect_err(bad);
         assert!(err.to_string().contains("http://"), "{bad}: {err}");
+    }
+}
+
+fn relay_env(extra: &[(&'static str, &'static str)]) -> Vec<(String, String)> {
+    let mut all = vec![("MP_SMTP_RELAY_HOST", "smtp.example.com")];
+    all.extend_from_slice(extra);
+    env(&all)
+}
+
+#[test]
+fn relay_is_off_by_default_and_read_from_variables() {
+    let s = load_ok(Sources::default()).settings;
+    assert_eq!(s.relay, RelaySettings::default());
+    assert_eq!(s.forward, ForwardSettings::default());
+
+    let s = load_ok(Sources {
+        cli: vec![],
+        env: relay_env(&[
+            ("MP_SMTP_RELAY_PORT", "587"),
+            ("MP_SMTP_RELAY_STARTTLS", "true"),
+            ("MP_SMTP_RELAY_USERNAME", "user"),
+            ("MP_SMTP_RELAY_PASSWORD", "s3cret"),
+            ("MP_SMTP_RELAY_ALLOWED_RECIPIENTS", "@example\\.com$"),
+        ]),
+    })
+    .settings;
+    let target = s.relay.target.as_ref().expect("target");
+    assert_eq!(
+        (target.host.as_str(), target.port),
+        ("smtp.example.com", 587)
+    );
+    assert_eq!(target.security, SmtpSecurity::StartTls);
+    assert_eq!(target.limit_per_minute, 60);
+    assert_eq!(target.login.as_ref().expect("login").password, "s3cret");
+    assert!(!s.relay.all, "releasing does not relay new messages");
+    assert!(
+        !format!("{s:?}").contains("s3cret"),
+        "the password is never printed"
+    );
+}
+
+#[test]
+fn relaying_everything_needs_an_allowlist() {
+    let err = load(&Sources {
+        cli: cli(&[("smtp-relay-all", None)]),
+        env: relay_env(&[]),
+    })
+    .expect_err("open relay");
+    assert!(err.to_string().contains("allowed-recipients"), "{err}");
+
+    let s = load_ok(Sources {
+        cli: cli(&[("smtp-relay-all", None)]),
+        env: relay_env(&[("MP_SMTP_RELAY_ALLOWED_RECIPIENTS", "@example\\.com$")]),
+    })
+    .settings;
+    assert!(s.relay.all);
+
+    let err = load(&Sources {
+        cli: cli(&[("smtp-relay-all", None)]),
+        env: vec![],
+    })
+    .expect_err("no host");
+    assert!(err.to_string().contains("host"), "{err}");
+}
+
+#[test]
+fn unsafe_relay_settings_are_refused() {
+    for (extra, expected) in [
+        (
+            &[
+                ("MP_SMTP_RELAY_USERNAME", "u"),
+                ("MP_SMTP_RELAY_PASSWORD", "s3cret"),
+            ][..],
+            "unencrypted",
+        ),
+        (&[("MP_SMTP_RELAY_USERNAME", "u")][..], "password"),
+        (&[("MP_SMTP_RELAY_AUTH", "cram-md5")][..], "CRAM-MD5"),
+        (
+            &[("MP_SMTP_RELAY_STARTTLS", "1"), ("MP_SMTP_RELAY_TLS", "1")][..],
+            "together",
+        ),
+        (
+            &[("MP_SMTP_RELAY_RETURN_PATH", "a@b\r\nX: y")][..],
+            "return-path",
+        ),
+        (
+            &[("MP_SMTP_RELAY_BLOCKED_RECIPIENTS", "(")][..],
+            "regular expression",
+        ),
+    ] {
+        let err = load(&Sources {
+            cli: vec![],
+            env: relay_env(extra),
+        })
+        .expect_err(expected)
+        .to_string();
+        assert!(err.contains(expected), "{expected}: {err}");
+        assert!(!err.contains("s3cret"), "{err}");
+    }
+    // Settings without a host would otherwise be silently ignored.
+    let err = load(&Sources {
+        cli: vec![],
+        env: env(&[("MP_SMTP_RELAY_PASSWORD", "s3cret")]),
+    })
+    .expect_err("no host")
+    .to_string();
+    assert!(err.contains("host") && !err.contains("s3cret"), "{err}");
+    // CRAM-MD5 secrets are refused rather than ignored.
+    assert!(
+        load(&Sources {
+            cli: vec![],
+            env: relay_env(&[("MP_SMTP_RELAY_SECRET", "s3cret")]),
+        })
+        .is_err()
+    );
+}
+
+#[test]
+fn relay_to_this_server_is_refused() {
+    let err = load(&Sources {
+        cli: cli(&[("smtp", Some("127.0.0.1:2525"))]),
+        env: env(&[
+            ("MP_SMTP_RELAY_HOST", "localhost"),
+            ("MP_SMTP_RELAY_PORT", "2525"),
+        ]),
+    })
+    .expect_err("loop");
+    assert!(err.to_string().contains("come back"), "{err}");
+}
+
+#[test]
+fn relay_file_is_overridden_by_variables() {
+    let mut f = tempfile::NamedTempFile::new().expect("tempfile");
+    writeln!(
+        f,
+        "host: from-file.example.com\nport: 2525\nrate-limit: 5\nallowed-recipients: '@file$'"
+    )
+    .expect("write");
+    let path = f.path().to_string_lossy().to_string();
+    let s = load_ok(Sources {
+        cli: cli(&[("smtp-relay-config", Some(&path))]),
+        env: env(&[("MP_SMTP_RELAY_HOST", "from-env.example.com")]),
+    })
+    .settings;
+    let target = s.relay.target.expect("target");
+    assert_eq!(
+        (target.host.as_str(), target.port),
+        ("from-env.example.com", 2525)
+    );
+    assert_eq!(target.limit_per_minute, 5);
+    assert_eq!(s.relay.allowed_recipients.as_deref(), Some("@file$"));
+}
+
+#[test]
+fn forward_needs_addresses() {
+    let s = load_ok(Sources {
+        cli: vec![],
+        env: env(&[
+            ("MP_SMTP_FORWARD_HOST", "smtp.example.com"),
+            ("MP_SMTP_FORWARD_TO", "a@example.com, b@example.com"),
+        ]),
+    })
+    .settings;
+    assert_eq!(s.forward.to, ["a@example.com", "b@example.com"]);
+
+    for (vars, expected) in [
+        (&[("MP_SMTP_FORWARD_HOST", "h")][..], "at least one"),
+        (&[("MP_SMTP_FORWARD_TO", "a@b.test")][..], "host"),
+        (
+            &[
+                ("MP_SMTP_FORWARD_HOST", "h"),
+                ("MP_SMTP_FORWARD_TO", "A <a@b.test>"),
+            ][..],
+            "not a valid address",
+        ),
+    ] {
+        let err = load(&Sources {
+            cli: vec![],
+            env: env(vars),
+        })
+        .expect_err(expected);
+        assert!(err.to_string().contains(expected), "{err}");
     }
 }

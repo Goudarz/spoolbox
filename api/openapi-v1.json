@@ -544,13 +544,33 @@
     "/api/v1/message/{id}/release": {
       "post": {
         "operationId": "releaseMessage",
-        "summary": "Relay the message (not available yet)",
+        "summary": "Queue the message for the configured relay server; delivery is retried in the background",
         "tags": [
           "message"
         ],
         "responses": {
+          "200": {
+            "description": "`ok`",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Invalid request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
             "content": {
               "text/plain": {
                 "schema": {

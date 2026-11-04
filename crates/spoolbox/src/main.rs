@@ -339,6 +339,8 @@ async fn serve(s: &Settings) -> Result<(), String> {
         tracing::info!(path = %core.store.db_path().display(), "using database");
     }
 
+    let senders = spoolbox_app::relay::workers(s, &core)?;
+
     let hostname = spoolbox_app::hostname();
     let tls = spoolbox_app::load_tls(s, &hostname).map_err(|e| e.to_string())?;
     let ui_tls = spoolbox_app::load_ui_tls(s, &hostname).map_err(|e| e.to_string())?;
@@ -412,10 +414,15 @@ async fn serve(s: &Settings) -> Result<(), String> {
     );
     let api = api
         .with_transcripts(core.transcripts.clone())
-        .with_mcp_delete(s.http.mcp_allow_delete);
+        .with_mcp_delete(s.http.mcp_allow_delete)
+        .with_relay(core.relay.clone());
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());
     let webhook_task =
         webhook.map(|opts| spoolbox_http::spawn_webhooks(api.clone(), opts, stop_rx.clone()));
+    let sender_tasks: Vec<_> = senders
+        .into_iter()
+        .map(|w| tokio::spawn(w.run(stop_rx.clone())))
+        .collect();
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);
     let shutdown_ready = ready.clone();
@@ -437,6 +444,9 @@ async fn serve(s: &Settings) -> Result<(), String> {
         let _ = maint_task.await;
         let _ = bridge_task.await;
         if let Some(task) = webhook_task {
+            let _ = task.await;
+        }
+        for task in sender_tasks {
             let _ = task.await;
         }
     })

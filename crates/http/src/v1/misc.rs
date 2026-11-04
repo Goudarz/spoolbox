@@ -137,21 +137,37 @@ struct WebUiConfiguration {
     hide_delete_all_button: bool,
 }
 
+/// What the web UI shows about the relay; never the credentials.
+fn message_relay(api: &Api) -> MessageRelay {
+    let settings = api.0.relay.as_ref().map(|r| r.settings());
+    let target = settings.and_then(|s| s.target.as_ref());
+    let allowed = settings
+        .and_then(|s| s.allowed_recipients.clone())
+        .unwrap_or_default();
+    MessageRelay {
+        enabled: target.is_some(),
+        smtp_server: target.map_or(String::new(), |t| format!("{}:{}", t.host, t.port)),
+        return_path: target
+            .and_then(|t| t.return_path.clone())
+            .unwrap_or_default(),
+        allowed_recipients: allowed.clone(),
+        blocked_recipients: settings
+            .and_then(|s| s.blocked_recipients.clone())
+            .unwrap_or_default(),
+        override_from: target
+            .and_then(|t| t.override_from.clone())
+            .unwrap_or_default(),
+        preserve_message_ids: target.is_some_and(|t| t.preserve_message_ids),
+        recipient_allowlist: allowed,
+    }
+}
+
 async fn webui(State(api): State<Api>) -> Response {
     json(
         StatusCode::OK,
         &WebUiConfiguration {
             label: api.0.info.label.clone(),
-            message_relay: MessageRelay {
-                enabled: false,
-                smtp_server: String::new(),
-                return_path: String::new(),
-                allowed_recipients: String::new(),
-                blocked_recipients: String::new(),
-                override_from: String::new(),
-                preserve_message_ids: false,
-                recipient_allowlist: String::new(),
-            },
+            message_relay: message_relay(&api),
             spam_assassin: false,
             chaos_enabled: api.0.chaos.is_some(),
             duplicates_ignored: api.0.info.duplicates_ignored,

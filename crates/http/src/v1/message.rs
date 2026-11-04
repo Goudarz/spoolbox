@@ -3,9 +3,9 @@
 use std::sync::LazyLock;
 
 use axum::Router;
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::extract::{Path, Query, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use regex::Regex;
@@ -15,7 +15,8 @@ use spoolbox_store::{Store, StoreError};
 use super::types::{Attachment, ListUnsubscribe, Message, Recipients, from_row};
 use super::{resolve, thumb};
 use crate::api::{
-    Api, Params, bad_request, disposition, is_active_content, json, not_found, rfc3339, text,
+    Api, Params, bad_request, disposition, is_active_content, json, not_found, ok_text, rfc3339,
+    text,
 };
 
 pub(super) fn routes() -> Router<Api> {
@@ -273,9 +274,57 @@ async fn thumbnail(State(api): State<Api>, Path((id, part)): Path<(String, Strin
     res
 }
 
-/// Relaying is planned for phase P7; answers 400 while no relay is configured.
-async fn release(Path(_id): Path<String>) -> Response {
-    bad_request("message relay is not configured")
+#[derive(serde::Deserialize)]
+struct ReleaseBody {
+    #[serde(rename = "To", default)]
+    to: Vec<String>,
+}
+
+/// Queues the message for the configured relay server and returns at once; delivery is retried
+/// in the background. A JSON content type is required so that a plain cross-site form, which
+/// a browser sends without asking, cannot make this server mail a message to an attacker.
+async fn release(
+    State(api): State<Api>,
+    Path(id): Path<String>,
+    Query(p): Query<Params>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let Some(relay) = api.0.relay.clone() else {
+        return bad_request("message relay is not configured");
+    };
+    let is_json = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(';').next())
+        .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"));
+    if !is_json {
+        return bad_request("expected application/json");
+    }
+    let to = match serde_json::from_slice::<ReleaseBody>(&body) {
+        Ok(b) => b.to,
+        Err(e) => return bad_request(e.to_string()),
+    };
+    if let Err(e) = relay.check_release(&to) {
+        return bad_request(e);
+    }
+    let id = match resolve(&api, id, &p).await {
+        Ok(id) => id,
+        Err(r) => return r,
+    };
+    let queued = api
+        .run(move |s| {
+            let Some(message) = s.get(&id)? else {
+                return Ok(false);
+            };
+            relay.release(s, message.seq, to).map(|()| true)
+        })
+        .await;
+    match queued {
+        Ok(true) => ok_text(),
+        Ok(false) => not_found(),
+        Err(r) => r,
+    }
 }
 
 /// HTML and link checks are planned after the MVP (roadmap: P2 checks).

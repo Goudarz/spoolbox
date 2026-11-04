@@ -43,6 +43,8 @@ pub(crate) struct Inner {
     pub mcp_allow_delete: bool,
     /// Recent SMTP sessions (`--smtp-transcripts`).
     pub transcripts: Option<Arc<spoolbox_smtp::Transcripts>>,
+    /// Message release (`POST /api/v1/message/{id}/release`); `None` unless configured.
+    pub relay: Option<Arc<spoolbox_app::relay::Relay>>,
     /// v1 WebSocket notifications (JSON text frames).
     pub ws: broadcast::Sender<Arc<str>>,
 }
@@ -63,6 +65,7 @@ impl Api {
             started: Instant::now(),
             deleted: AtomicU64::new(0),
             transcripts: None,
+            relay: None,
             mcp_allow_delete: false,
             ws,
         }))
@@ -72,6 +75,14 @@ impl Api {
     pub fn with_transcripts(mut self, t: Option<Arc<spoolbox_smtp::Transcripts>>) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.0) {
             inner.transcripts = t;
+        }
+        self
+    }
+
+    /// Enables message release. Call right after [`Api::new`].
+    pub fn with_relay(mut self, relay: Option<Arc<spoolbox_app::relay::Relay>>) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.0) {
+            inner.relay = relay;
         }
         self
     }

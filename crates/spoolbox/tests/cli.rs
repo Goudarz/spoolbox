@@ -39,7 +39,10 @@ impl Drop for Server {
 
 /// Starts the server on an ephemeral port and reads the bound address from the JSON log.
 fn start(extra: &[&str]) -> Server {
-    let mut cmd = bin();
+    start_with(bin(), extra)
+}
+
+fn start_with(mut cmd: Command, extra: &[&str]) -> Server {
     cmd.args([
         "--listen",
         "127.0.0.1:0",
@@ -421,6 +424,146 @@ fn webhook_url_makes_the_server_post_new_messages() {
     );
     let summary: serde_json::Value = serde_json::from_slice(&body).expect("json body");
     assert!(summary["ID"].is_string(), "{summary}");
+}
+
+/// Waits until a server has `count` messages and returns the first one's summary.
+fn wait_for_messages(addr: &str, count: u64) -> serde_json::Value {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        let (status, body) = http_get(addr, "/api/v1/messages");
+        assert_eq!(status, 200, "{body}");
+        let list: serde_json::Value = serde_json::from_str(body.trim()).expect("json");
+        if list["messages_count"].as_u64() == Some(count) {
+            return list["messages"][0].clone();
+        }
+        assert!(Instant::now() < deadline, "messages did not arrive: {body}");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[test]
+fn smtp_relay_all_is_refused_without_an_allowlist() {
+    let out = run(
+        &["--smtp-relay-all"],
+        &[("MP_SMTP_RELAY_HOST", "smtp.example.com")],
+    );
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("allowed-recipients"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn relay_and_forward_between_two_servers() {
+    let upstream = start(&[]);
+    let (host, port) = upstream.smtp.rsplit_once(':').expect("addr");
+
+    // Relay: only allowed recipients leave, and only they appear in the envelope.
+    let mut cmd = bin();
+    cmd.env("MP_SMTP_RELAY_HOST", host)
+        .env("MP_SMTP_RELAY_PORT", port)
+        .env("MP_SMTP_RELAY_ALLOWED_RECIPIENTS", r"@example\.com$");
+    let capture = start_with(cmd, &["--smtp-relay-all"]);
+    let sent = run(
+        &[
+            "send-sample",
+            "--smtp",
+            &capture.smtp,
+            "--sample",
+            "plain",
+            "--to",
+            "dev@example.com",
+        ],
+        &[],
+    );
+    assert!(
+        sent.status.success(),
+        "{}",
+        String::from_utf8_lossy(&sent.stderr)
+    );
+    wait_for_messages(&capture.addr, 1);
+    let relayed = wait_for_messages(&upstream.addr, 1);
+    let id = relayed["ID"].as_str().expect("id");
+    let (_, envelope) = http_get(&upstream.addr, &format!("/api/v2/messages/{id}/envelope"));
+    assert!(envelope.contains("dev@example.com"), "{envelope}");
+
+    let refused = run(
+        &[
+            "send-sample",
+            "--smtp",
+            &capture.smtp,
+            "--sample",
+            "plain",
+            "--to",
+            "dev@attacker.test",
+        ],
+        &[],
+    );
+    assert!(refused.status.success());
+    wait_for_messages(&capture.addr, 2);
+    std::thread::sleep(Duration::from_millis(500));
+    wait_for_messages(&upstream.addr, 1);
+
+    // Forward: a copy of every message, to the fixed address.
+    let other = start(&[]);
+    let (host, port) = other.smtp.rsplit_once(':').expect("addr");
+    let mut cmd = bin();
+    cmd.env("MP_SMTP_FORWARD_HOST", host)
+        .env("MP_SMTP_FORWARD_PORT", port)
+        .env("MP_SMTP_FORWARD_TO", "team@example.com");
+    let forwarding = start_with(cmd, &[]);
+    let sent = run(
+        &[
+            "send-sample",
+            "--smtp",
+            &forwarding.smtp,
+            "--sample",
+            "plain",
+        ],
+        &[],
+    );
+    assert!(sent.status.success());
+    let copy = wait_for_messages(&other.addr, 1);
+    let id = copy["ID"].as_str().expect("id");
+    let (_, envelope) = http_get(&other.addr, &format!("/api/v2/messages/{id}/envelope"));
+    assert!(envelope.contains("team@example.com"), "{envelope}");
+}
+
+#[test]
+fn starttls_relay_checks_the_certificate_unless_told_otherwise() {
+    let upstream = start(&["--smtp-tls-cert", "auto"]);
+    let (host, port) = upstream.smtp.rsplit_once(':').expect("addr");
+    let send = |capture: &Server| {
+        let sent = run(
+            &["send-sample", "--smtp", &capture.smtp, "--sample", "plain"],
+            &[],
+        );
+        assert!(sent.status.success());
+    };
+    let env = |cmd: &mut Command| {
+        cmd.env("MP_SMTP_RELAY_HOST", host)
+            .env("MP_SMTP_RELAY_PORT", port)
+            .env("MP_SMTP_RELAY_STARTTLS", "true")
+            .env("MP_SMTP_RELAY_ALLOWED_RECIPIENTS", ".");
+    };
+
+    // A self-signed certificate is refused by default.
+    let mut cmd = bin();
+    env(&mut cmd);
+    let strict = start_with(cmd, &["--smtp-relay-all"]);
+    send(&strict);
+    wait_for_messages(&strict.addr, 1);
+    std::thread::sleep(Duration::from_millis(1500));
+    wait_for_messages(&upstream.addr, 0);
+
+    let mut cmd = bin();
+    env(&mut cmd);
+    cmd.env("MP_SMTP_RELAY_ALLOW_INSECURE", "true");
+    let relaxed = start_with(cmd, &["--smtp-relay-all"]);
+    send(&relaxed);
+    wait_for_messages(&upstream.addr, 1);
 }
 
 #[test]

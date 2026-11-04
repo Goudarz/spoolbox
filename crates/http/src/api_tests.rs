@@ -1043,3 +1043,133 @@ async fn webhooks_post_signed_summaries() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(t.core.store.pending_jobs().expect("jobs"), 0);
 }
+
+#[tokio::test]
+async fn release_is_refused_without_a_relay_and_checks_recipients_with_one() {
+    async fn post(app: &axum::Router, uri: &str, ctype: &str, body: &str) -> (StatusCode, String) {
+        let response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::post(uri)
+                    .header("content-type", ctype)
+                    .body(axum::body::Body::from(body.to_string()))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        (status, String::from_utf8_lossy(&bytes).to_string())
+    }
+
+    // Off by default.
+    let t = T::new();
+    let id = t.put(PLAIN_MSG, &["erin@example.com"]).await;
+    let (status, body) = post(
+        &t.app,
+        &format!("/api/v1/message/{id}/release"),
+        "application/json",
+        r#"{"To":["dev@example.com"]}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body.contains("not configured"), "{body}");
+
+    let mut s = settings();
+    s.relay.target = Some(spoolbox_config::SmtpTarget {
+        host: "smtp.example.com".into(),
+        port: 587,
+        security: spoolbox_config::SmtpSecurity::StartTls,
+        allow_insecure: false,
+        login: Some(spoolbox_config::SmtpLogin {
+            mechanism: spoolbox_config::SmtpMechanism::Plain,
+            username: "relay-user".into(),
+            password: "s3cret".into(),
+        }),
+        return_path: None,
+        override_from: None,
+        preserve_message_ids: false,
+        limit_per_minute: 0,
+    });
+    s.relay.allowed_recipients = Some(r"@example\.com$".into());
+    let (core, api) = test_api(&s);
+    let api = api.with_relay(core.relay.clone());
+    let r = Readiness::default();
+    r.set(true);
+    let t = T {
+        app: router(&HttpOptions::new("/"), r, api),
+        core,
+    };
+    let id = t.put(PLAIN_MSG, &["erin@example.com"]).await;
+    let uri = format!("/api/v1/message/{id}/release");
+    let good = r#"{"To":["dev@example.com"]}"#;
+
+    // A cross-site form can only send these content types.
+    for ctype in [
+        "text/plain",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data",
+    ] {
+        let (status, _) = post(&t.app, &uri, ctype, good).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{ctype}");
+    }
+    for (body, expected) in [
+        (r#"{"To":[]}"#, "no recipients"),
+        ("{}", "no recipients"),
+        ("not json", "expected"),
+        (r#"{"To":["dev@attacker.test"]}"#, "not allowed"),
+        (
+            r#"{"To":["dev@example.com","dev@attacker.test"]}"#,
+            "not allowed",
+        ),
+        (
+            r#"{"To":["dev@attacker.test\r\nRCPT TO:<x@example.com>"]}"#,
+            "not allowed",
+        ),
+    ] {
+        let (status, text) = post(&t.app, &uri, "application/json", body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert!(text.contains(expected), "{body}: {text}");
+    }
+    let job_count = || {
+        t.core
+            .store
+            .claim_jobs("relay", 10, Duration::ZERO)
+            .expect("claim")
+            .len()
+    };
+    assert_eq!(job_count(), 0, "nothing refused was queued");
+
+    let (status, _) = post(
+        &t.app,
+        "/api/v1/message/missing/release",
+        "application/json",
+        good,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, text) = post(&t.app, &uri, "application/json; charset=utf-8", good).await;
+    assert_eq!((status, text.as_str()), (StatusCode::OK, "ok"));
+    let (status, _) = post(
+        &t.app,
+        "/api/v1/message/latest/release",
+        "application/json",
+        good,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(job_count(), 2);
+
+    let ui = t.get_json("/api/v1/webui").await;
+    assert_eq!(ui["MessageRelay"]["Enabled"], true);
+    assert_eq!(ui["MessageRelay"]["SMTPServer"], "smtp.example.com:587");
+    assert_eq!(ui["MessageRelay"]["AllowedRecipients"], r"@example\.com$");
+    let text = ui.to_string();
+    assert!(
+        !text.contains("s3cret") && !text.contains("relay-user"),
+        "credentials stay private: {text}"
+    );
+}

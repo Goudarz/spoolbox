@@ -85,6 +85,18 @@ jobs:
           ./target/debug/spoolbox readyz --listen 127.0.0.1:28125 --wait --timeout 30s
           python3 -I tools/snapshot/api_v1.py --api http://127.0.0.1:28125 --smtp 127.0.0.1:21125
 
+  fuzz-targets:
+    name: fuzz targets compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Check
+        run: cargo check --manifest-path fuzz/Cargo.toml --bins --locked
+
   web:
     name: web UI (build, type check, e2e)
     runs-on: ubuntu-latest

@@ -4,11 +4,13 @@
 use std::sync::Arc;
 
 use libfuzzer_sys::fuzz_target;
-use spoolbox_smtp::session::{DataOutcome, Next, Session, SessionConfig};
+use spoolbox_smtp::session::{DataOutcome, Next, Session, SessionConfig, SmtpAuth};
 
 fuzz_target!(|data: &[u8]| {
     let mut cfg = SessionConfig::new("fuzz.test");
-    cfg.auth_accept_any = data.first().is_some_and(|b| b & 1 == 1);
+    if data.first().is_some_and(|b| b & 1 == 1) {
+        cfg.auth = SmtpAuth::AcceptAny;
+    }
     cfg.starttls_available = data.first().is_some_and(|b| b & 2 == 2);
     cfg.max_recipients = 3;
     let mut s = Session::new(Arc::new(cfg), "127.0.0.1", None);
@@ -23,7 +25,7 @@ fuzz_target!(|data: &[u8]| {
                 let _ = s.data_result(DataOutcome::Stored("FUZZ".into()));
             }
             Next::StartTls => s.tls_established("TLSv1.3".into()),
-            Next::Close | Next::Continue => {}
+            Next::Close | Next::Drop | Next::Continue => {}
         }
     }
 });

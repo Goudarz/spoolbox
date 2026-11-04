@@ -109,6 +109,38 @@ flowchart LR
 
 نسخه‌های npm با قاعده ۱۴ روز: svelte 5.57.2، vite 8.3.4، @sveltejs/vite-plugin-svelte 7.3.1، typescript 6.0.3 (svelte-check هنوز TS 7 را نمی‌پذیرد)، svelte-check 4.7.7، @playwright/test 1.64.1، @axe-core/playwright 4.14.0.
 
+### Phase 7 — وضعیت (2026-11-04): 🚧 در حال انجام
+
+| قابلیت | وضعیت |
+|---|---|
+| tag rules | ✅ `--tag`، `--tags-config`، `[[tags.rules]]` |
+| webhook | ✅ `--webhook-url` با outbox، retry و امضای HMAC؛ فقط https یا همین ماشین مگر با `--allow-internal-http-requests`؛ timeout پنج ثانیه؛ هدر امضا `X-Spoolbox-Signature` است |
+| relay/release/forward | ✅ سمت سرور و API؛ دکمهٔ release در UI هنوز ساخته نشده |
+| POP3، link check، HTML check، Prometheus، notifications | ⏳ |
+
+**relay و forward:**
+
+- **پیش‌فرض خاموش است.** بدون host، هیچ پیامی از سرور خارج نمی‌شود و `release` پاسخ 400 می‌دهد.
+- **تنظیمات:** فایل YAML با `--smtp-relay-config` و `--smtp-forward-config`، و متغیرهای `MP_SMTP_RELAY_*` و `MP_SMTP_FORWARD_*`. متغیرها بر فایل مقدم‌اند.
+- **کلیدهای فایل:** `host`، `port` (پیش‌فرض 25)، `starttls`، `tls`، `allow-insecure`، `auth` (`none`، `plain`، `login`)، `username`، `password`، `return-path`، `override-from`، `rate-limit` (پیام در دقیقه، پیش‌فرض 60، صفر یعنی بدون سقف)، `preserve-message-ids`؛ فقط برای relay: `allowed-recipients`، `blocked-recipients`؛ فقط برای forward: `to`.
+- **ارسال خودکار:** `--smtp-relay-all` به `allowed-recipients` نیاز دارد و بدون آن سرور بالا نمی‌آید (T16). `--smtp-relay-matching` فقط گیرنده‌های منطبق را می‌فرستد.
+- **ناهمگام:** ارسال هرگز داخل نشست SMTP یا درخواست API انجام نمی‌شود. خطای موقت با backoff تکرار می‌شود (حداکثر ۸ بار) و خطای دائمی (5xx) بلافاصله به‌صورت job ناموفق نگه داشته می‌شود. به همین دلیل `MP_SMTP_RELAY_FWD_SMTP_ERRORS` اثری ندارد.
+- **تحویل دست‌کم یک‌بار:** اگر پردازه وسط ارسال از بین برود، همان پیام ممکن است دوباره ارسال شود. `Message-ID` جدید در retryها ثابت می‌ماند تا گیرنده بتواند تکرار را تشخیص دهد.
+
+**کنترل‌های امنیتی (T16)، هرکدام با تست:**
+
+- سیاست گیرنده بدون حساسیت به حروف بزرگ و کوچک اعمال می‌شود و درست پیش از ارسال هم دوباره چک می‌شود.
+- فقط آدرس ساده (`local@domain`) پذیرفته می‌شود، پس تزریق فرمان SMTP با CRLF ممکن نیست.
+- `release` فقط `application/json` می‌پذیرد تا فرم cross-site نتواند ایمیل را به آدرس مهاجم بفرستد.
+- پیام‌های `import` هرگز خودکار ارسال نمی‌شوند.
+- `Bcc` و `Return-Path` از پیام ارسالی حذف می‌شوند.
+- ارسال password بدون TLS به مقصد غیر loopback رد می‌شود، مگر با `allow-insecure`.
+- مقصدی که همان پورت SMTP خود سرور روی loopback باشد رد می‌شود تا حلقه ایجاد نشود.
+- password در `Debug`، `/api/v1/webui` و پیام‌های خطای YAML دیده نمی‌شود.
+- هر ارسال با گیرنده‌هایش log می‌شود.
+
+**تغییر سازگاری:** CRAM-MD5 پشتیبانی نمی‌شود؛ `auth: cram-md5` و `MP_SMTP_RELAY_SECRET` سرور را با خطای صریح متوقف می‌کنند.
+
 ### Phase 6 — وضعیت (2026-10-31): ✅ انجام شد
 
 تأیید مالک: «برو برای فاز ۶». **۲۱۳ تست Rust** و **۱۹ تست Playwright** سبز؛ clippy و cargo-deny سبز.

@@ -27,7 +27,7 @@
 | 13 | GET | `/api/v1/message/{id}/part/{part}` | محتوای decode‌شده؛ HTML/XML/SVG همیشه `application/octet-stream` + attachment؛ `filename*` (RFC 8187) |
 | 14 | GET | `.../part/{part}/thumb` | JPEG 180×120 (سفید برای غیرتصویر) |
 | 15 | GET | `/api/v1/message/{id}/raw` | بایت‌به‌بایت همان پیام دریافتی؛ `dl=1` |
-| 16 | POST | `/api/v1/message/{id}/release` | تا P7: 400 «message relay is not configured» |
+| 16 | POST | `/api/v1/message/{id}/release` | بدون relay: 400 «message relay is not configured»؛ با relay: بررسی گیرنده‌ها، صف‌کردن و پاسخ `ok`؛ ارسال در پس‌زمینه و با retry (تفاوت عمدی: خطای SMTP در پاسخ برنمی‌گردد)؛ فقط `application/json` |
 | 17–18 | GET | `html-check`، `link-check` | `501` تا پس از MVP |
 | 20 | GET | `/api/v1/info` | `LatestVersion: "disabled"` (بدون تماس با اینترنت)؛ `Memory` فقط Linux |
 | 21 | GET | `/api/v1/webui` | پیکربندی UI |

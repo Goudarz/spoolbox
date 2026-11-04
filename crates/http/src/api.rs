@@ -45,6 +45,8 @@ pub(crate) struct Inner {
     pub transcripts: Option<Arc<spoolbox_smtp::Transcripts>>,
     /// Message release (`POST /api/v1/message/{id}/release`); `None` unless configured.
     pub relay: Option<Arc<spoolbox_app::relay::Relay>>,
+    /// `GET /api/v1/message/{id}/link-check`; `None` with `--disable-link-check`.
+    pub link_check: Option<spoolbox_app::linkcheck::LinkChecker>,
     /// v1 WebSocket notifications (JSON text frames).
     pub ws: broadcast::Sender<Arc<str>>,
 }
@@ -66,6 +68,7 @@ impl Api {
             deleted: AtomicU64::new(0),
             transcripts: None,
             relay: None,
+            link_check: Some(spoolbox_app::linkcheck::LinkChecker::default()),
             mcp_allow_delete: false,
             ws,
         }))
@@ -83,6 +86,17 @@ impl Api {
     pub fn with_relay(mut self, relay: Option<Arc<spoolbox_app::relay::Relay>>) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.0) {
             inner.relay = relay;
+        }
+        self
+    }
+
+    /// Sets the link check policy. Call right after [`Api::new`].
+    pub fn with_link_check(
+        mut self,
+        checker: Option<spoolbox_app::linkcheck::LinkChecker>,
+    ) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.0) {
+            inner.link_check = checker;
         }
         self
     }

@@ -437,7 +437,10 @@ async fn serve(s: &Settings) -> Result<(), String> {
     let api = api
         .with_transcripts(core.transcripts.clone())
         .with_mcp_delete(s.http.mcp_allow_delete)
-        .with_relay(core.relay.clone());
+        .with_relay(core.relay.clone())
+        .with_link_check(spoolbox_app::linkcheck::LinkChecker::from_settings(
+            &s.egress,
+        ));
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());
     let webhook_task =
         webhook.map(|opts| spoolbox_http::spawn_webhooks(api.clone(), opts, stop_rx.clone()));

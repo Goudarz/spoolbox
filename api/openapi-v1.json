@@ -649,13 +649,33 @@
     "/api/v1/message/{id}/link-check": {
       "get": {
         "operationId": "linkCheck",
-        "summary": "Link check (not available yet)",
+        "summary": "Request the links of the message now and report their status; internal addresses are refused unless allowed",
         "tags": [
           "message"
         ],
         "responses": {
+          "200": {
+            "description": "Status of each link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkCheck"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "501": {
-            "description": "Not implemented",
+            "description": "Turned off with --disable-link-check",
             "content": {
               "text/plain": {
                 "schema": {
@@ -674,6 +694,22 @@
               "type": "string"
             },
             "description": "Message ID, or `latest` (optionally filtered with `query`)"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "With `latest`: newest message matching this search"
+          },
+          {
+            "name": "follow",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Follow up to 3 redirects"
           }
         ]
       }
@@ -1502,6 +1538,34 @@
               "type": "string"
             },
             "description": "Empty or missing deletes every message"
+          }
+        }
+      },
+      "LinkCheck": {
+        "type": "object",
+        "properties": {
+          "Errors": {
+            "type": "integer",
+            "description": "Links that could not be reached or answered with an error"
+          },
+          "Links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "URL": {
+                  "type": "string"
+                },
+                "StatusCode": {
+                  "type": "integer",
+                  "description": "0 when no response was received"
+                },
+                "Status": {
+                  "type": "string",
+                  "description": "Reason phrase, or why the link could not be checked"
+                }
+              }
+            }
           }
         }
       },

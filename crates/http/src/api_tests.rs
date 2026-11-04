@@ -1173,3 +1173,102 @@ async fn release_is_refused_without_a_relay_and_checks_recipients_with_one() {
         "credentials stay private: {text}"
     );
 }
+
+#[tokio::test]
+async fn link_check_reports_statuses_and_refuses_internal_addresses() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let site = listener.local_addr().expect("addr");
+    tokio::spawn(async move {
+        while let Ok((mut s, _)) = listener.accept().await {
+            let mut buf = [0u8; 2048];
+            let n = s.read(&mut buf).await.unwrap_or(0);
+            let reply: &[u8] = if buf[..n].starts_with(b"HEAD /gone") {
+                b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            } else if buf[..n].starts_with(b"HEAD /moved") {
+                b"HTTP/1.1 302 Found\r\nLocation: /ok\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            } else {
+                b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            };
+            let _ = s.write_all(reply).await;
+        }
+    });
+    let message = format!(
+        "From: a@example.com\r\nSubject: links\r\nContent-Type: text/html\r\n\r\n<a href=\"http://{site}/ok\">ok</a> <a href=\"http://{site}/gone\">gone</a> <a href=\"http://{site}/moved\">moved</a> <a href=\"mailto:x@example.com\">mail</a>\r\n"
+    );
+
+    // The default policy: the message cannot reach this machine.
+    let t = T::new();
+    let id = t.put(&message, &["b@example.com"]).await;
+    let report = t
+        .get_json(&format!("/api/v1/message/{id}/link-check"))
+        .await;
+    assert_eq!(report["Errors"], 3, "{report}");
+    let first = &report["Links"][0];
+    assert_eq!(first["StatusCode"], 0);
+    assert!(
+        first["Status"]
+            .as_str()
+            .expect("status")
+            .contains("internal address"),
+        "{report}"
+    );
+
+    // With --allow-internal-http-requests.
+    let (core, api) = test_api(&settings());
+    let api = api.with_link_check(spoolbox_app::linkcheck::LinkChecker::from_settings(
+        &spoolbox_config::EgressSettings {
+            allow_internal: true,
+            link_check_rate_limit: false,
+            ..spoolbox_config::EgressSettings::default()
+        },
+    ));
+    let r = Readiness::default();
+    r.set(true);
+    let t = T {
+        app: router(&HttpOptions::new("/"), r, api),
+        core,
+    };
+    let id = t.put(&message, &["b@example.com"]).await;
+    let report = t
+        .get_json(&format!("/api/v1/message/{id}/link-check"))
+        .await;
+    assert_eq!(report["Errors"], 1, "{report}");
+    let links = report["Links"].as_array().expect("links");
+    assert_eq!(links.len(), 3, "mailto is left out: {report}");
+    assert_eq!(links[0]["URL"], format!("http://{site}/ok"));
+    assert_eq!(links[0]["StatusCode"], 200);
+    assert_eq!(links[0]["Status"], "OK");
+    assert_eq!(links[1]["StatusCode"], 404);
+    assert_eq!(links[2]["StatusCode"], 302);
+
+    let report = t
+        .get_json("/api/v1/message/latest/link-check?follow=true")
+        .await;
+    assert_eq!(report["Links"][2]["StatusCode"], 200, "{report}");
+    let (status, _, _) = t
+        .req(Method::GET, "/api/v1/message/missing/link-check", None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // With --disable-link-check.
+    let (core, api) = test_api(&settings());
+    let api = api.with_link_check(None);
+    let r = Readiness::default();
+    r.set(true);
+    let t = T {
+        app: router(&HttpOptions::new("/"), r, api),
+        core,
+    };
+    let id = t.put(&message, &["b@example.com"]).await;
+    let (status, _, _) = t
+        .req(
+            Method::GET,
+            &format!("/api/v1/message/{id}/link-check"),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+}

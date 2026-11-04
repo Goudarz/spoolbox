@@ -28,7 +28,7 @@ pub(super) fn routes() -> Router<Api> {
         .route("/api/v1/message/{id}/part/{part}/thumb", get(thumbnail))
         .route("/api/v1/message/{id}/release", post(release))
         .route("/api/v1/message/{id}/html-check", get(not_implemented))
-        .route("/api/v1/message/{id}/link-check", get(not_implemented))
+        .route("/api/v1/message/{id}/link-check", get(link_check))
 }
 
 /// Loads a message as the v1 API presents it, and marks it read.
@@ -327,7 +327,74 @@ async fn release(
     }
 }
 
-/// HTML and link checks are planned after the MVP (roadmap: P2 checks).
+#[derive(serde::Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct LinkCheckLink {
+    #[serde(rename = "URL")]
+    url: String,
+    status_code: u16,
+    status: String,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct LinkCheckReport {
+    errors: usize,
+    links: Vec<LinkCheckLink>,
+}
+
+/// Requests the links of a message now (only on this explicit call) and reports their status.
+async fn link_check(
+    State(api): State<Api>,
+    Path(id): Path<String>,
+    Query(p): Query<Params>,
+) -> Response {
+    let Some(checker) = api.0.link_check.clone() else {
+        return text(StatusCode::NOT_IMPLEMENTED, "link check is disabled");
+    };
+    let id = match resolve(&api, id, &p).await {
+        Ok(id) => id,
+        Err(r) => return r,
+    };
+    let raw = match api
+        .run(move |s| match s.raw(&id) {
+            Ok(raw) => Ok(Some(raw)),
+            Err(StoreError::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        })
+        .await
+    {
+        Ok(Some(raw)) => raw,
+        Ok(None) => return not_found(),
+        Err(r) => return r,
+    };
+    let bodies = view::bodies(&raw);
+    let html = (!bodies.html.is_empty()).then_some(bodies.html.as_str());
+    let plain = (!bodies.text.is_empty()).then_some(bodies.text.as_str());
+    let urls = view::links(html, plain)
+        .into_iter()
+        .map(|l| l.url)
+        .collect();
+    let follow = p.get("follow").is_some_and(|v| v == "true" || v == "1");
+    let report = checker.check(urls, follow).await;
+    json(
+        StatusCode::OK,
+        &LinkCheckReport {
+            errors: report.errors,
+            links: report
+                .links
+                .into_iter()
+                .map(|l| LinkCheckLink {
+                    url: l.url,
+                    status_code: l.status_code,
+                    status: l.status,
+                })
+                .collect(),
+        },
+    )
+}
+
+/// The HTML check is planned (roadmap: P7).
 async fn not_implemented() -> Response {
     text(StatusCode::NOT_IMPLEMENTED, "not implemented yet")
 }

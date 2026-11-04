@@ -53,6 +53,7 @@ impl WebhookOptions {
             allow_internal: self.allow_internal || loopback,
             allow_untrusted_tls: self.allow_untrusted_tls,
             timeout: TIMEOUT,
+            any_port: true,
             ..Egress::default()
         };
         Ok((url, egress))

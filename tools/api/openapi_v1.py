@@ -59,6 +59,14 @@ schemas = {
                 "description": "Header name (canonical form, e.g. `Message-Id`) to raw values, in order"},
     "SetRead": obj({"Read": B, "IDs": STRINGS, "Search": dict(S, description="Search query; not together with IDs")}),
     "DeleteMessages": obj({"IDs": dict(STRINGS, description="Empty or missing deletes every message")}),
+    "LinkCheck": obj({
+        "Errors": dict(I, description="Links that could not be reached or answered with an error"),
+        "Links": {"type": "array", "items": obj({
+            "URL": S,
+            "StatusCode": dict(I, description="0 when no response was received"),
+            "Status": dict(S, description="Reason phrase, or why the link could not be checked"),
+        })},
+    }),
     "SetTags": obj({"IDs": STRINGS, "Tags": dict(STRINGS, description="Replaces the tags; empty removes all")}),
     "RenameTag": obj({"Name": S}, ["Name"]),
     "SendAddress": {"oneOf": [obj({"Email": S, "Name": S}, ["Email"]), dict(S, description="`a@b` or `Name <a@b>`")]},
@@ -156,8 +164,10 @@ paths = {
                                                 {"200": OK, "400": BAD, "404": NOT_FOUND}, [ID], obj({"To": STRINGS}, ["To"]))},
     "/api/v1/message/{id}/html-check": {"get": op("htmlCheck", "HTML compatibility check (not available yet)", "message",
                                                   {"501": {"description": "Not implemented", "content": TEXT}}, [ID])},
-    "/api/v1/message/{id}/link-check": {"get": op("linkCheck", "Link check (not available yet)", "message",
-                                                  {"501": {"description": "Not implemented", "content": TEXT}}, [ID])},
+    "/api/v1/message/{id}/link-check": {"get": op("linkCheck", "Request the links of the message now and report their status; internal addresses are refused unless allowed", "message",
+                                                  {"200": json_resp("Status of each link", ref("LinkCheck")), "404": NOT_FOUND,
+                                                   "501": {"description": "Turned off with --disable-link-check", "content": TEXT}},
+                                                  [ID, LATEST_QUERY, {"name": "follow", "in": "query", "schema": {"type": "boolean"}, "description": "Follow up to 3 redirects"}])},
     "/api/v1/tags": {
         "get": op("getTags", "All tags", "tags", {"200": json_resp("Tag names", STRINGS)}),
         "put": op("setTags", "Replace the tags of messages", "tags", {"200": OK, "400": BAD}, None, ref("SetTags")),

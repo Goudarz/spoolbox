@@ -567,6 +567,25 @@ fn starttls_relay_checks_the_certificate_unless_told_otherwise() {
 }
 
 #[test]
+fn prometheus_on_the_main_port_or_its_own() {
+    let off = start(&[]);
+    assert_eq!(http_get(&off.addr, "/metrics").0, 404);
+
+    let main = start(&["--enable-prometheus", "true"]);
+    let (status, body) = http_get(&main.addr, "/metrics");
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains("spoolbox_messages 0"), "{body}");
+
+    let listen = free_port();
+    let separate = start(&["--enable-prometheus", &listen]);
+    assert_eq!(http_get(&separate.addr, "/metrics").0, 404);
+    let (status, body) = http_get(&listen, "/metrics");
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains("spoolbox_uptime_seconds"), "{body}");
+    assert_eq!(http_get(&listen, "/api/v1/messages").0, 404, "only metrics");
+}
+
+#[test]
 fn pop3_needs_users() {
     let out = run(&["--pop3", "127.0.0.1:0"], &[]);
     assert!(!out.status.success());

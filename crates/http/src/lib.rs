@@ -9,6 +9,7 @@ mod api;
 mod events;
 mod host;
 mod mcp;
+mod metrics;
 mod tls;
 mod ui;
 mod v1;
@@ -34,6 +35,7 @@ pub use access::{AccessPolicy, SendAuth};
 pub use api::{Api, InstanceInfo};
 pub use events::spawn_bridge;
 pub use host::HostPolicy;
+pub use metrics::metrics_router;
 pub use tls::{Peer, TlsListener};
 pub use webhooks::{WebhookOptions, signature as webhook_signature, spawn_webhooks};
 
@@ -46,6 +48,8 @@ const API_CSP: &str = "default-src 'none'; frame-ancestors 'self'";
 
 #[derive(Debug, Clone)]
 pub struct HttpOptions {
+    /// Serve `/metrics` here, behind the same authentication.
+    pub metrics: bool,
     /// Starts and ends with `/`.
     pub webroot: String,
     pub hosts: HostPolicy,
@@ -65,6 +69,7 @@ impl HttpOptions {
             send_auth: SendAuth::default(),
             cors: Vec::new(),
             compression: true,
+            metrics: false,
         }
     }
 }
@@ -122,9 +127,13 @@ pub fn router(opts: &HttpOptions, ready: Readiness, api: Api) -> Router {
         send_auth: opts.send_auth.clone(),
         cors: opts.cors.clone(),
     });
-    let app = v1::routes()
-        .merge(v2::routes())
-        .merge(mcp::routes())
+    let api_routes = v1::routes().merge(v2::routes()).merge(mcp::routes());
+    let api_routes = if opts.metrics {
+        api_routes.merge(metrics::routes())
+    } else {
+        api_routes
+    };
+    let app = api_routes
         .route("/api/events", get(events::websocket))
         .with_state(api)
         .merge(view)

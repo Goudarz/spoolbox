@@ -178,6 +178,14 @@ pub async fn run(loaded: &Loaded) -> Vec<Check> {
         .await,
     );
     out.push(port("smtp", s.smtp.listen.to_socket_addr(), None).await);
+    if let spoolbox_config::Prometheus::Listen(listen) = &s.prometheus {
+        out.push(
+            match tokio::net::TcpListener::bind(listen.to_socket_addr()).await {
+                Ok(_) => check(Level::Ok, "metrics", format!("{listen} is free")),
+                Err(e) => check(Level::Fail, "metrics", format!("{listen}: {e}")),
+            },
+        );
+    }
     if let Some(pop3) = &s.pop3 {
         out.push(port("pop3", pop3.listen.to_socket_addr(), None).await);
     }

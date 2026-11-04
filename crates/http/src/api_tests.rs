@@ -1272,3 +1272,59 @@ async fn link_check_reports_statuses_and_refuses_internal_addresses() {
         .await;
     assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
 }
+
+#[tokio::test]
+async fn metrics_are_opt_in_and_in_the_prometheus_format() {
+    let t = T::new();
+    let (status, _, _) = t.req(Method::GET, "/metrics", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "off by default");
+
+    let mut opts = HttpOptions::new("/");
+    opts.metrics = true;
+    let t = build(&settings(), opts);
+    let id = t
+        .put(
+            "From: secret-sender@example.com\r\nSubject: private subject\r\nX-Tags: private-tag\r\n\r\nbody\r\n",
+            &["secret-rcpt@example.com"],
+        )
+        .await;
+    t.core
+        .store
+        .enqueue("relay", None, "{}", Duration::from_secs(3600))
+        .expect("enqueue");
+    let (status, headers, body) = t.req(Method::GET, "/metrics", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers[header::CONTENT_TYPE],
+        "text/plain; version=0.0.4; charset=utf-8"
+    );
+    let body = text(&body);
+    for expected in [
+        "spoolbox_messages 1\n",
+        "spoolbox_messages_unread 1\n",
+        "# TYPE spoolbox_messages_deleted_total counter\n",
+        "spoolbox_build_info{version=\"",
+        "spoolbox_jobs{kind=\"relay\",state=\"pending\"} 1\n",
+    ] {
+        assert!(body.contains(expected), "{expected} missing in\n{body}");
+    }
+    for private in ["secret-sender", "secret-rcpt", "private", id.as_str()] {
+        assert!(!body.contains(private), "{private} leaked in\n{body}");
+    }
+    // Every line is a comment or `name[{labels}] value`.
+    for line in body.lines().filter(|l| !l.starts_with('#')) {
+        let (name, value) = line.rsplit_once(' ').expect(line);
+        assert!(name.starts_with("spoolbox_"), "{line}");
+        assert!(value.parse::<f64>().is_ok(), "{line}");
+    }
+
+    // Behind the same authentication as everything else.
+    let mut opts = HttpOptions::new("/");
+    opts.metrics = true;
+    opts.ui_auth = Some(Arc::new(
+        spoolbox_auth::Credentials::parse("dev:secret").expect("credentials"),
+    ));
+    let t = build(&settings(), opts);
+    let (status, _, _) = t.req(Method::GET, "/metrics", None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}

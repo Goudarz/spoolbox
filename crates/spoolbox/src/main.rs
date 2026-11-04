@@ -372,6 +372,15 @@ async fn serve(s: &Settings) -> Result<(), String> {
         }
         None => None,
     };
+    let metrics_listener = match &s.prometheus {
+        spoolbox_config::Prometheus::Listen(addr) => {
+            let addr = addr.to_socket_addr();
+            Some(tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+                format!("cannot listen on {addr} for Prometheus: {e} (use --enable-prometheus to choose another address)")
+            })?)
+        }
+        _ => None,
+    };
     let smtp_local = smtp_listener.local_addr().map_err(|e| e.to_string())?;
     let http_local = http_listener.local_addr().map_err(|e| e.to_string())?;
 
@@ -448,6 +457,23 @@ async fn serve(s: &Settings) -> Result<(), String> {
         .into_iter()
         .map(|w| tokio::spawn(w.run(stop_rx.clone())))
         .collect();
+    let metrics_task = match metrics_listener {
+        Some(listener) => {
+            let addr = listener.local_addr().map_err(|e| e.to_string())?;
+            tracing::info!(%addr, "Prometheus metrics listening");
+            let app = spoolbox_http::metrics_router(api.clone());
+            let mut stop = stop_rx.clone();
+            Some(tokio::spawn(async move {
+                let shutdown = async move {
+                    let _ = stop.wait_for(|s| *s).await;
+                };
+                if let Err(e) = spoolbox_http::serve(listener, app, shutdown).await {
+                    tracing::error!("Prometheus listener failed: {e}");
+                }
+            }))
+        }
+        None => None,
+    };
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);
     let shutdown_ready = ready.clone();
@@ -477,6 +503,9 @@ async fn serve(s: &Settings) -> Result<(), String> {
         if let Some(task) = pop3_task {
             let _ = task.await;
         }
+        if let Some(task) = metrics_task {
+            let _ = task.await;
+        }
     })
     .await;
     if drained.is_err() {
@@ -500,6 +529,7 @@ fn http_options(s: &Settings) -> HttpOptions {
     };
     o.cors = s.http.cors_origins.clone();
     o.compression = s.http.compression;
+    o.metrics = s.prometheus == spoolbox_config::Prometheus::MainPort;
     o
 }
 

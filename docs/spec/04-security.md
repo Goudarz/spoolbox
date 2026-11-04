@@ -26,7 +26,7 @@
 | T14 | تزریق هدر | رد CR/LF در همه مقادیر هدر ورودی API؛ builder تنها مسیر ساخت | تست `\r\n` در Subject/Name |
 | T15 | SMTP command injection / smuggling | state machine صریح؛ terminator فقط CRLF.CRLF؛ PIPELINING با buffer مستقل؛ بعد از STARTTLS buffer خالی (حمله STARTTLS command injection، CVE-2011-0411 class) | تست تزریق فرمان قبل از handshake |
 | T16 | سوءاستفاده از relay (open relay) | پیش‌فرض خاموش؛ نیاز به allowlist صریح برای `relay-all`؛ rate limit؛ log هر ارسال | — |
-| T17 | Webhook ناامن | HMAC-SHA256 (`X-Signature`، timestamp)؛ فقط https یا loopback به‌طور پیش‌فرض؛ timeout 5s | — |
+| T17 | Webhook ناامن | HMAC-SHA256 (`X-Spoolbox-Signature`، timestamp)؛ فقط https یا loopback به‌طور پیش‌فرض؛ timeout 5s | — |
 | T18 | Secret در log | redaction: هرگز password/AUTH payload را log نکن (حتی در debug transcript)؛ `Secret<String>` type | grep لاگ تست برای رمز نمونه |
 | T19 | Brute force | محدودیت تلاش ناموفق per-IP (SMTP AUTH، Basic، POP3) با تأخیر | — |
 | T20 | DoS اتصال/حافظه | stream DATA؛ سقف هم‌زمانی DATA فعال (مثلاً 64) جدا از اتصالات؛ سقف کل حافظه buffer | تست 1000 اتصال slowloris |

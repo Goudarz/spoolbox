@@ -115,16 +115,17 @@ flowchart LR
 |---|---|
 | tag rules | ✅ `--tag`، `--tags-config`، `[[tags.rules]]` |
 | webhook | ✅ `--webhook-url` با outbox، retry و امضای HMAC؛ فقط https یا همین ماشین مگر با `--allow-internal-http-requests`؛ timeout پنج ثانیه؛ هدر امضا `X-Spoolbox-Signature` است |
-| relay/release/forward | ✅ سمت سرور و API؛ دکمهٔ release در UI هنوز ساخته نشده |
+| relay/release/forward | ✅ سرور، API و دکمهٔ release در UI |
 | POP3، link check، HTML check، Prometheus، notifications | ⏳ |
 
 **relay و forward:**
 
 - **پیش‌فرض خاموش است.** بدون host، هیچ پیامی از سرور خارج نمی‌شود و `release` پاسخ 400 می‌دهد.
-- **تنظیمات:** فایل YAML با `--smtp-relay-config` و `--smtp-forward-config`، و متغیرهای `MP_SMTP_RELAY_*` و `MP_SMTP_FORWARD_*`. متغیرها بر فایل مقدم‌اند.
+- **تنظیمات:** فایل YAML با `--smtp-relay-config` و `--smtp-forward-config` (یا `relay.config` و `forward.config` در TOML)، و متغیرهای `SPOOLBOX_SMTP_RELAY_*` و `SPOOLBOX_SMTP_FORWARD_*` یا معادل `MP_*` آن‌ها. متغیرها بر فایل مقدم‌اند و `SPOOLBOX_*` بر `MP_*`.
 - **کلیدهای فایل:** `host`، `port` (پیش‌فرض 25)، `starttls`، `tls`، `allow-insecure`، `auth` (`none`، `plain`، `login`)، `username`، `password`، `return-path`، `override-from`، `rate-limit` (پیام در دقیقه، پیش‌فرض 60، صفر یعنی بدون سقف)، `preserve-message-ids`؛ فقط برای relay: `allowed-recipients`، `blocked-recipients`؛ فقط برای forward: `to`.
 - **ارسال خودکار:** `--smtp-relay-all` به `allowed-recipients` نیاز دارد و بدون آن سرور بالا نمی‌آید (T16). `--smtp-relay-matching` فقط گیرنده‌های منطبق را می‌فرستد.
 - **ناهمگام:** ارسال هرگز داخل نشست SMTP یا درخواست API انجام نمی‌شود. خطای موقت با backoff تکرار می‌شود (حداکثر ۸ بار) و خطای دائمی (5xx) بلافاصله به‌صورت job ناموفق نگه داشته می‌شود. به همین دلیل `MP_SMTP_RELAY_FWD_SMTP_ERRORS` اثری ندارد.
+- **ساخت job اتمی است:** job‌های webhook، relay و forward در همان تراکنشِ پایان index ساخته می‌شوند، پس crash نه آن‌ها را از دست می‌دهد و نه دوبار می‌سازد. index دوباره (`reindex`) هیچ ارسالی ایجاد نمی‌کند.
 - **تحویل دست‌کم یک‌بار:** اگر پردازه وسط ارسال از بین برود، همان پیام ممکن است دوباره ارسال شود. `Message-ID` جدید در retryها ثابت می‌ماند تا گیرنده بتواند تکرار را تشخیص دهد.
 
 **کنترل‌های امنیتی (T16)، هرکدام با تست:**

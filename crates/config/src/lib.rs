@@ -20,9 +20,9 @@ pub use key::Key;
 pub use relay::{Field as RelayField, is_plain_address};
 pub use settings::{
     ChaosSettings, EgressSettings, ForwardSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat,
-    LogLevel, LogSettings, MIB, NetworkSettings, RelaySettings, Settings, SmtpLogin, SmtpMechanism,
-    SmtpSecurity, SmtpSettings, SmtpTarget, StorageSettings, TagRule, TagSettings, TlsSource,
-    WebhookSettings,
+    LogLevel, LogSettings, MIB, NetworkSettings, Pop3Settings, RelaySettings, Settings, SmtpLogin,
+    SmtpMechanism, SmtpSecurity, SmtpSettings, SmtpTarget, StorageSettings, TagRule, TagSettings,
+    TlsSource, WebhookSettings,
 };
 
 use key::{AuthSources, Builder, parse_compat_bool};
@@ -438,6 +438,50 @@ fn finish(
     .map_err(|e| ConfigError::Conflict(format!("SMTP relay: {e}")))?;
     s.forward = relay::resolve_forward(b.forward_config.as_deref(), b.forward_env, &s.smtp.listen)
         .map_err(|e| ConfigError::Conflict(format!("SMTP forward: {e}")))?;
+    let pop3_auth = credentials(b.pop3_auth, "POP3 authentication", &mut diagnostics)?;
+    let pop3_tls = tls_source(
+        b.pop3_tls_cert,
+        b.pop3_tls_key,
+        "--pop3-tls-key",
+        "--pop3-tls-cert",
+    )?;
+    s.pop3 = match (b.pop3_listen, pop3_auth) {
+        (None, None) if pop3_tls.is_none() => None,
+        (None, _) => {
+            return Err(ConfigError::Conflict(
+                "the POP3 options need --pop3 with the address to listen on".into(),
+            ));
+        }
+        (Some((_, origin)), None) => {
+            return Err(ConfigError::Conflict(format!(
+                "{origin}: POP3 can read and delete every message, so it needs users: set --pop3-auth-file or MP_POP3_AUTH"
+            )));
+        }
+        (Some((listen, origin)), Some(auth)) => {
+            if !listen.is_loopback()
+                && pop3_tls.is_none()
+                && !s.network.allow_unauthenticated_network
+            {
+                return Err(ConfigError::Conflict(format!(
+                    "{origin}: POP3 on {listen} would send passwords unencrypted: set --pop3-tls-cert (e.g. `auto`), or --allow-unauthenticated-network to accept that"
+                )));
+            }
+            if listen.port != 0
+                && [&s.http.listen, &s.smtp.listen]
+                    .iter()
+                    .any(|other| other.to_socket_addr() == listen.to_socket_addr())
+            {
+                return Err(ConfigError::Conflict(format!(
+                    "{origin}: {listen} is already used by HTTP or SMTP"
+                )));
+            }
+            Some(Pop3Settings {
+                listen,
+                auth,
+                tls: pop3_tls,
+            })
+        }
+    };
     if let Some((raw, origin)) = &b.cors {
         s.http.cors_origins = cors_origins(raw, origin, &mut diagnostics);
     }

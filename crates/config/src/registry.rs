@@ -51,7 +51,7 @@ pub struct EnvAlias {
     pub target: EnvTarget,
 }
 
-use Severity::{Error as E, Warn as W};
+use Severity::Warn as W;
 use Status::{Active, Deprecated, NoOp, Planned, Removed};
 
 const fn flag(
@@ -379,9 +379,27 @@ pub const FLAGS: &[FlagSpec] = &[
         "Only accept recipients matching this regular expression",
         Active(Key::SmtpAllowedRecipients),
     ),
-    planned("pop3-auth-file", true, "P7", E),
-    planned("pop3-tls-cert", true, "P7", E),
-    planned("pop3-tls-key", true, "P7", E),
+    flag(
+        "pop3-auth-file",
+        None,
+        true,
+        "Password file of the POP3 users (required with --pop3)",
+        Active(Key::Pop3AuthFile),
+    ),
+    flag(
+        "pop3-tls-cert",
+        None,
+        true,
+        "TLS certificate for POP3 STLS, or `auto` for a self-signed one",
+        Active(Key::Pop3TlsCert),
+    ),
+    flag(
+        "pop3-tls-key",
+        None,
+        true,
+        "TLS private key for POP3 STLS",
+        Active(Key::Pop3TlsKey),
+    ),
     // --- planned: safe to ignore for now ---
     flag(
         "smtp-auth-accept-any",
@@ -510,7 +528,13 @@ pub const FLAGS: &[FlagSpec] = &[
         "Hide the delete-all button in the web UI",
         Active(Key::HideDeleteAllButton),
     ),
-    planned("pop3", true, "P7", W),
+    flag(
+        "pop3",
+        None,
+        true,
+        "Serve messages over POP3 on this address (off by default)",
+        Active(Key::Pop3Listen),
+    ),
     flag(
         "smtp-relay-config",
         None,
@@ -767,13 +791,7 @@ pub const COMPAT_ENV: &[EnvAlias] = &[
     alias("MP_CHAOS_TRIGGERS", "chaos-triggers"),
     alias("MP_POP3_BIND_ADDR", "pop3"),
     alias("MP_POP3_AUTH_FILE", "pop3-auth-file"),
-    env_only(
-        "MP_POP3_AUTH",
-        Planned {
-            phase: "P7",
-            on_use: E,
-        },
-    ),
+    env_only("MP_POP3_AUTH", Active(Key::Pop3Auth)),
     alias("MP_POP3_TLS_CERT", "pop3-tls-cert"),
     alias("MP_POP3_TLS_KEY", "pop3-tls-key"),
     alias("MP_TAG", "tag"),

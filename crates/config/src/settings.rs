@@ -21,6 +21,17 @@ pub struct Settings {
     pub egress: EgressSettings,
     pub relay: RelaySettings,
     pub forward: ForwardSettings,
+    /// Off unless `--pop3` is given.
+    pub pop3: Option<Pop3Settings>,
+}
+
+/// `--pop3`. Users are mandatory: every message can be read and deleted through it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pop3Settings {
+    pub listen: ListenAddr,
+    pub auth: Credentials,
+    /// Offered with STLS, and then required for clients on other machines.
+    pub tls: Option<TlsSource>,
 }
 
 /// POST a message summary for every new message.
@@ -338,6 +349,7 @@ impl Default for Settings {
             egress: EgressSettings::default(),
             relay: RelaySettings::default(),
             forward: ForwardSettings::default(),
+            pop3: None,
             log: LogSettings {
                 level: LogLevel::Info,
                 format: LogFormat::Text,

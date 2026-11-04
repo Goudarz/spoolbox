@@ -98,24 +98,80 @@ fn empty_env_values_are_ignored() {
 }
 
 #[test]
-fn security_relevant_planned_options_refuse_to_start() {
-    for src in [
-        Sources {
-            cli: cli(&[("pop3-auth-file", Some("/tmp/x"))]),
-            env: vec![],
-        },
-        Sources {
-            cli: vec![],
-            env: env(&[("MP_POP3_AUTH", "user:pass")]),
-        },
-    ] {
-        let err = load(&src).expect_err("must refuse");
-        assert!(matches!(err, ConfigError::NotYetSupported { .. }), "{err}");
-        assert!(
-            !err.to_string().contains("user:pass"),
-            "secret value must not be echoed"
-        );
-    }
+fn pop3_is_off_by_default_and_needs_users() {
+    assert_eq!(load_ok(Sources::default()).settings.pop3, None);
+
+    let s = load_ok(Sources {
+        cli: cli(&[("pop3", Some("127.0.0.1:1110"))]),
+        env: env(&[("MP_POP3_AUTH", "dev:secret")]),
+    })
+    .settings
+    .pop3
+    .expect("pop3");
+    assert_eq!(s.listen.port, 1110);
+    assert!(s.auth.verify("dev", "secret"));
+    assert_eq!(s.tls, None);
+
+    let refused = |cli_args: Vec<(String, Option<String>)>, vars: &[(&str, &str)]| {
+        load(&Sources {
+            cli: cli_args,
+            env: env(vars),
+        })
+        .expect_err("must refuse")
+        .to_string()
+    };
+    let auth = [("MP_POP3_AUTH", "dev:secret")];
+    let err = refused(cli(&[("pop3", Some("127.0.0.1:1110"))]), &[]);
+    assert!(err.contains("needs users"), "{err}");
+    // Options without the listener would otherwise be silently ignored.
+    let err = refused(vec![], &auth);
+    assert!(
+        err.contains("--pop3") && !err.contains("dev:secret"),
+        "{err}"
+    );
+    let err = refused(cli(&[("pop3-tls-cert", Some("auto"))]), &[]);
+    assert!(err.contains("--pop3"), "{err}");
+    let err = refused(cli(&[("pop3", Some("0.0.0.0:1110"))]), &auth);
+    assert!(err.contains("unencrypted"), "{err}");
+    let err = refused(
+        cli(&[
+            ("pop3", Some("127.0.0.1:1110")),
+            ("smtp", Some("127.0.0.1:1110")),
+        ]),
+        &auth,
+    );
+    assert!(err.contains("already used"), "{err}");
+    let err = refused(
+        cli(&[
+            ("pop3", Some("127.0.0.1:1110")),
+            ("pop3-tls-cert", Some("cert.pem")),
+        ]),
+        &auth,
+    );
+    assert!(err.contains("--pop3-tls-key"), "{err}");
+
+    // Allowed on the network once passwords are protected.
+    let s = load_ok(Sources {
+        cli: cli(&[
+            ("pop3", Some("0.0.0.0:1110")),
+            ("pop3-tls-cert", Some("auto")),
+        ]),
+        env: env(&auth),
+    })
+    .settings;
+    assert_eq!(s.pop3.expect("pop3").tls, Some(TlsSource::Auto));
+    assert!(
+        !format!(
+            "{:?}",
+            load_ok(Sources {
+                cli: cli(&[("pop3", Some("127.0.0.1:1110"))]),
+                env: env(&auth),
+            })
+            .settings
+        )
+        .contains("secret"),
+        "the password is never printed"
+    );
 }
 
 #[test]

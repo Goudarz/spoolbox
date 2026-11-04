@@ -21,6 +21,16 @@ struct FileConfig {
     webhook: Option<Webhook>,
     relay: Option<Relay>,
     forward: Option<Forward>,
+    pop3: Option<Pop3>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct Pop3 {
+    listen: Option<String>,
+    auth_file: Option<String>,
+    tls_cert: Option<String>,
+    tls_key: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -447,6 +457,11 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
     push(Key::SmtpRelayMatching, "relay.matching", relay.matching);
     let forward = cfg.forward.unwrap_or_default();
     push(Key::SmtpForwardConfig, "forward.config", forward.config);
+    let pop3 = cfg.pop3.unwrap_or_default();
+    push(Key::Pop3Listen, "pop3.listen", pop3.listen);
+    push(Key::Pop3AuthFile, "pop3.auth_file", pop3.auth_file);
+    push(Key::Pop3TlsCert, "pop3.tls_cert", pop3.tls_cert);
+    push(Key::Pop3TlsKey, "pop3.tls_key", pop3.tls_key);
 
     let log = cfg.log.unwrap_or_default();
     push(Key::LogLevel, "log.level", log.level);

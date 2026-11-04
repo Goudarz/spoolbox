@@ -77,6 +77,12 @@ pub enum Key {
     SmtpRelayAll,
     SmtpRelayMatching,
     SmtpForwardConfig,
+    Pop3Listen,
+    Pop3AuthFile,
+    /// Inline `user:password` entries (`MP_POP3_AUTH`).
+    Pop3Auth,
+    Pop3TlsCert,
+    Pop3TlsKey,
     /// `MP_SMTP_RELAY_*`.
     Relay(Field),
     /// `MP_SMTP_FORWARD_*`.
@@ -141,6 +147,11 @@ pub(crate) struct Builder {
     pub relay_matching: Option<String>,
     pub forward_config: Option<String>,
     pub forward_env: RawTarget,
+    /// `--pop3` and its options, checked together in `finish`.
+    pub pop3_listen: Option<(spoolbox_core::ListenAddr, Origin)>,
+    pub pop3_auth: AuthSources,
+    pub pop3_tls_cert: Option<(String, Origin)>,
+    pub pop3_tls_key: Option<(String, Origin)>,
 }
 
 /// An htpasswd file and/or inline entries; the file wins when both are set.
@@ -328,6 +339,21 @@ impl Builder {
             }
             Key::WebhookSecret => s.webhook.secret = (!v.is_empty()).then(|| v.to_string()),
             Key::TagsConfig => self.tags_config = non_empty(v, origin),
+            Key::Pop3Listen => {
+                self.pop3_listen = if v.is_empty() {
+                    None
+                } else {
+                    Some((
+                        v.parse()
+                            .map_err(|e: spoolbox_core::ListenAddrError| invalid(&e.to_string()))?,
+                        origin.clone(),
+                    ))
+                }
+            }
+            Key::Pop3AuthFile => self.pop3_auth.file = non_empty(v, origin),
+            Key::Pop3Auth => self.pop3_auth.inline = non_empty(v, origin),
+            Key::Pop3TlsCert => self.pop3_tls_cert = non_empty(v, origin),
+            Key::Pop3TlsKey => self.pop3_tls_key = non_empty(v, origin),
             Key::SmtpRelayConfig => self.relay_config = (!v.is_empty()).then(|| v.to_string()),
             Key::SmtpForwardConfig => self.forward_config = (!v.is_empty()).then(|| v.to_string()),
             Key::SmtpRelayMatching => self.relay_matching = (!v.is_empty()).then(|| v.to_string()),

@@ -146,7 +146,9 @@ impl Core {
         let workers = std::thread::available_parallelism()
             .map(|n| n.get().min(4))
             .unwrap_or(2);
-        let indexer = Indexer::new(store.clone(), wake, workers).with_tag_rules(&s.tags.rules);
+        let indexer = Indexer::new(store.clone(), wake, workers)
+            .with_tag_rules(&s.tags.rules)
+            .with_webhook(s.webhook.url.as_ref().map(|_| s.webhook.delay));
         let chaos = s.chaos.enabled.then(|| {
             let chaos = spoolbox_core::chaos::Chaos::new(s.chaos.triggers);
             // Already validated when the configuration was loaded.

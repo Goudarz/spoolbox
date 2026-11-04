@@ -946,3 +946,98 @@ async fn mcp_delete_only_when_allowed() {
     .await;
     assert_eq!(del["result"]["structuredContent"]["deleted"], 1);
 }
+
+#[tokio::test]
+async fn webhooks_post_signed_summaries() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let hook = listener.local_addr().expect("addr");
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(4);
+    tokio::spawn(async move {
+        while let Ok((mut s, _)) = listener.accept().await {
+            let mut buf = vec![0u8; 64 * 1024];
+            let mut got = Vec::new();
+            // Read until the JSON body is complete (headers + Content-Length bytes).
+            loop {
+                let n = s.read(&mut buf).await.unwrap_or(0);
+                if n == 0 {
+                    break;
+                }
+                got.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&got).to_string();
+                if let Some((head, body)) = text.split_once("\r\n\r\n") {
+                    let len = head
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                        })
+                        .unwrap_or(0);
+                    if body.len() >= len {
+                        break;
+                    }
+                }
+            }
+            let _ = s
+                .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+                .await;
+            let _ = tx.send(String::from_utf8_lossy(&got).to_string()).await;
+        }
+    });
+
+    let mut s = settings();
+    s.webhook.url = Some(format!("http://{hook}/hook"));
+    let (core, api) = test_api(&s);
+    let (_stop_tx, stop) = tokio::sync::watch::channel(false);
+    let _worker = spawn_webhooks(
+        api.clone(),
+        WebhookOptions {
+            url: format!("http://{hook}/hook"),
+            limit_per_second: 0,
+            secret: Some("topsecret".into()),
+            label: "dev".into(),
+        },
+        stop,
+    );
+    let r = Readiness::default();
+    r.set(true);
+    let t = T {
+        app: router(&HttpOptions::new("/"), r, api),
+        core,
+    };
+    let id = t.put(PLAIN_MSG, &["erin@example.com"]).await;
+
+    let request = tokio::time::timeout(Duration::from_secs(10), rx.recv())
+        .await
+        .expect("webhook in time")
+        .expect("request");
+    let (head, body) = request.split_once("\r\n\r\n").expect("http request");
+    assert!(head.starts_with("POST /hook HTTP/1.1"), "{head}");
+    let lower = head.to_ascii_lowercase();
+    assert!(lower.contains("x-spoolbox-label: dev"), "{head}");
+    let summary: Value = serde_json::from_str(body).expect("json body");
+    assert_eq!(summary["ID"], id.as_str());
+    let sig = head
+        .lines()
+        .find_map(|l| {
+            l.strip_prefix("x-spoolbox-signature: ")
+                .or_else(|| l.strip_prefix("X-Spoolbox-Signature: "))
+        })
+        .expect("signature header");
+    let t_value: u64 = sig
+        .split(',')
+        .find_map(|p| p.strip_prefix("t="))
+        .and_then(|v| v.parse().ok())
+        .expect("timestamp");
+    assert_eq!(
+        sig,
+        webhook_signature("topsecret", t_value, body.as_bytes()),
+        "receivers can verify the body"
+    );
+    // The job is done and removed.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(t.core.store.pending_jobs().expect("jobs"), 0);
+}

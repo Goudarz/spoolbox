@@ -23,6 +23,8 @@ pub struct Indexer {
     limits: Limits,
     /// Tag rules applied once a message is indexed.
     rules: Arc<Vec<(Query, Vec<String>)>>,
+    /// Queue a webhook job (after this delay) for every indexed message.
+    webhook: Option<Duration>,
 }
 
 impl Indexer {
@@ -33,7 +35,14 @@ impl Indexer {
             workers: workers.max(1),
             limits: Limits::default(),
             rules: Arc::default(),
+            webhook: None,
         }
+    }
+
+    /// Queue a `webhook` job for every message once it is indexed.
+    pub fn with_webhook(mut self, delay: Option<Duration>) -> Self {
+        self.webhook = delay;
+        self
     }
 
     /// Messages matching a rule's query get its tags after indexing.
@@ -88,22 +97,38 @@ impl Indexer {
             let store = self.store.clone();
             let limits = self.limits;
             let rules = self.rules.clone();
-            set.spawn_blocking(move || index_one(&store, &job, &limits, &rules));
+            let webhook = self.webhook;
+            set.spawn_blocking(move || {
+                if index_one(&store, &job, &limits, &rules)
+                    && let Some(delay) = webhook
+                    && let Err(e) = store.enqueue("webhook", Some(seq_of(&job)), "{}", delay)
+                {
+                    tracing::error!("cannot queue webhook: {e}");
+                }
+            });
         }
         while set.join_next().await.is_some() {}
         n
     }
 }
 
-fn index_one(store: &Store, job: &Job, limits: &Limits, rules: &[(Query, Vec<String>)]) {
+fn seq_of(job: &Job) -> i64 {
+    job.message_seq.unwrap_or_default()
+}
+
+/// Returns whether the message is now indexed (or recorded as unparseable).
+fn index_one(store: &Store, job: &Job, limits: &Limits, rules: &[(Query, Vec<String>)]) -> bool {
     let Some(seq) = job.message_seq else {
         tracing::warn!(job = job.id, "index job without message");
-        return;
+        return false;
     };
     let raw = match store.raw_for_job(seq) {
         Ok(raw) => raw,
-        Err(spoolbox_store::StoreError::NotFound) => return,
-        Err(e) => return retry_or_fail(store, job, seq, &e.to_string()),
+        Err(spoolbox_store::StoreError::NotFound) => return false,
+        Err(e) => {
+            retry_or_fail(store, job, seq, &e.to_string());
+            return false;
+        }
     };
     // A parser bug must not take the worker down; the message stays readable as raw source.
     let parsed = std::panic::catch_unwind(|| spoolbox_mime::index(&raw, limits));
@@ -117,8 +142,12 @@ fn index_one(store: &Store, job: &Job, limits: &Limits, rules: &[(Query, Vec<Str
             store.fail_index(job, seq, "internal parser error")
         }
     };
-    if let Err(e) = result {
-        retry_or_fail(store, job, seq, &e.to_string());
+    match result {
+        Ok(()) => true,
+        Err(e) => {
+            retry_or_fail(store, job, seq, &e.to_string());
+            false
+        }
     }
 }
 

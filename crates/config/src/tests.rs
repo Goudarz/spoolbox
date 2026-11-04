@@ -687,10 +687,12 @@ fn webhook_options() {
         !format!("{s:?}").contains("s3cret-key"),
         "secret never printed"
     );
-    let err = load(&Sources {
-        cli: cli(&[("webhook-url", Some("ftp://x"))]),
-        env: vec![],
-    })
-    .expect_err("scheme");
-    assert!(err.to_string().contains("http://"), "{err}");
+    for bad in ["ftp://x", "http://", "http://a b/"] {
+        let err = load(&Sources {
+            cli: cli(&[("webhook-url", Some(bad))]),
+            env: vec![],
+        })
+        .expect_err(bad);
+        assert!(err.to_string().contains("http://"), "{bad}: {err}");
+    }
 }

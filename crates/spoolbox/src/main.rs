@@ -399,6 +399,18 @@ async fn serve(s: &Settings) -> Result<(), String> {
         .with_transcripts(core.transcripts.clone())
         .with_mcp_delete(s.http.mcp_allow_delete);
     let bridge_task = spoolbox_http::spawn_bridge(api.clone(), stop_rx.clone());
+    let webhook_task = s.webhook.url.clone().map(|url| {
+        spoolbox_http::spawn_webhooks(
+            api.clone(),
+            spoolbox_http::WebhookOptions {
+                url,
+                limit_per_second: s.webhook.limit_per_second,
+                secret: s.webhook.secret.clone(),
+                label: s.label.clone(),
+            },
+            stop_rx.clone(),
+        )
+    });
     let app = spoolbox_http::router(&http_options(s), ready.clone(), api);
     ready.set(true);
     let shutdown_ready = ready.clone();
@@ -419,6 +431,9 @@ async fn serve(s: &Settings) -> Result<(), String> {
         let _ = index_task.await;
         let _ = maint_task.await;
         let _ = bridge_task.await;
+        if let Some(task) = webhook_task {
+            let _ = task.await;
+        }
     })
     .await;
     if drained.is_err() {

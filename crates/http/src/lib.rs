@@ -13,6 +13,7 @@ mod tls;
 mod ui;
 mod v1;
 mod v2;
+mod webhooks;
 
 use std::future::Future;
 use std::io;
@@ -34,6 +35,7 @@ pub use api::{Api, InstanceInfo};
 pub use events::spawn_bridge;
 pub use host::HostPolicy;
 pub use tls::{Peer, TlsListener};
+pub use webhooks::{WebhookOptions, signature as webhook_signature, spawn_webhooks};
 
 /// Request bodies above this size are rejected.
 /// The send API uses `--max-message-size` instead.

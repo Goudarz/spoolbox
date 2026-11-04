@@ -292,9 +292,8 @@ impl Builder {
                 if v.is_empty() {
                     s.webhook.url = None;
                 } else {
-                    let ok = (v.starts_with("http://") || v.starts_with("https://"))
-                        && v.split_once("://")
-                            .is_some_and(|(_, rest)| !rest.is_empty());
+                    let ok = url::Url::parse(v)
+                        .is_ok_and(|u| matches!(u.scheme(), "http" | "https") && u.has_host());
                     if !ok {
                         return Err(invalid("expected an http:// or https:// URL"));
                     }

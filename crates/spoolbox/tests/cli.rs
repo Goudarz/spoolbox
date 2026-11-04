@@ -349,6 +349,60 @@ fn http_get(addr: &str, path: &str) -> (u16, String) {
 }
 
 #[test]
+fn webhook_url_makes_the_server_post_new_messages() {
+    use std::io::{Read, Write};
+
+    let hook = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    let url = format!("http://{}/hook", hook.local_addr().expect("addr"));
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let Ok((mut stream, _)) = hook.accept() else {
+            return;
+        };
+        let mut reader = BufReader::new(stream.try_clone().expect("clone"));
+        let mut head = String::new();
+        let mut length = 0;
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).expect("read head");
+            if line.trim().is_empty() {
+                break;
+            }
+            if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = v.trim().parse().expect("length");
+            }
+            head.push_str(&line);
+        }
+        let mut body = vec![0; length];
+        reader.read_exact(&mut body).expect("read body");
+        let _ = stream.write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n");
+        let _ = tx.send((head, body));
+    });
+
+    let srv = start(&["--webhook-url", &url, "--label", "dev"]);
+    let sent = run(
+        &["send-sample", "--smtp", &srv.smtp, "--sample", "plain"],
+        &[],
+    );
+    assert!(
+        sent.status.success(),
+        "{}",
+        String::from_utf8_lossy(&sent.stderr)
+    );
+
+    let (head, body) = rx
+        .recv_timeout(Duration::from_secs(20))
+        .expect("webhook in time");
+    assert!(head.starts_with("POST /hook HTTP/1.1"), "{head}");
+    assert!(
+        head.to_ascii_lowercase().contains("x-spoolbox-label: dev"),
+        "{head}"
+    );
+    let summary: serde_json::Value = serde_json::from_slice(&body).expect("json body");
+    assert!(summary["ID"].is_string(), "{summary}");
+}
+
+#[test]
 fn smtp_transcripts_are_opt_in() {
     let off = start(&[]);
     assert_eq!(http_get(&off.addr, "/api/v2/transcripts").0, 404);

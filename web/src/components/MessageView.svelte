@@ -3,7 +3,7 @@
   import { box, drop, patch } from '../lib/mailbox.svelte';
   import { go } from '../lib/router.svelte';
   import { formatDate, formatSize, t } from '../lib/i18n.svelte';
-  import type { Address, Code, Envelope, Link, Message, MimePart, Transcript } from '../lib/types';
+  import type { Address, Code, Envelope, Link, LinkCheck, Message, MimePart, Transcript } from '../lib/types';
   import HtmlPreview from './HtmlPreview.svelte';
   import MimeTree from './MimeTree.svelte';
   import TagEditor from './TagEditor.svelte';
@@ -22,6 +22,11 @@
   let envelope: Envelope | undefined = $state();
   let transcript: Transcript | null | undefined = $state();
   let copied = $state('');
+  let linkCheck: LinkCheck | undefined = $state();
+  let linkCheckBusy = $state(false);
+  let linkCheckError = $state('');
+  let followRedirects = $state(false);
+  const linkStatus = $derived(new Map(linkCheck?.Links.map((l) => [l.URL, l]) ?? []));
   let releasing = $state(false);
   let releaseTo = $state('');
   let releaseBusy = $state(false);
@@ -40,7 +45,8 @@
     const current = id;
     msg = undefined;
     error = '';
-    headers = raw = mime = links = codes = envelope = transcript = undefined;
+    headers = raw = mime = links = codes = envelope = transcript = linkCheck = undefined;
+    linkCheckError = '';
     api
       .message(current)
       .then((m) => {
@@ -108,6 +114,21 @@
     await api.remove([msg.ID]);
     drop([msg.ID]);
     go({ name: 'inbox' });
+  }
+
+  async function checkLinks() {
+    if (!msg) return;
+    const current = msg.ID;
+    linkCheckBusy = true;
+    linkCheckError = '';
+    try {
+      const report = await api.linkCheck(current, followRedirects);
+      if (msg?.ID === current) linkCheck = report;
+    } catch (err) {
+      linkCheckError = err instanceof ApiError ? err.message : t('error');
+    } finally {
+      linkCheckBusy = false;
+    }
   }
 
   async function release(e: SubmitEvent) {
@@ -248,12 +269,23 @@
           </ul>
         {/if}
         {#if links?.length}
+          <div class="link-check">
+            <button type="button" disabled={linkCheckBusy} onclick={checkLinks}>{linkCheckBusy ? t('checkingLinks') : t('checkLinks')}</button>
+            <label><input type="checkbox" bind:checked={followRedirects} /> {t('followRedirects')}</label>
+            <p class="muted">{t('checkLinksNote')}</p>
+            {#if linkCheckError}<p role="alert">{linkCheckError}</p>{/if}
+            {#if linkCheck}<p role="status">{linkCheck.Links.length} {t('linksChecked')} · {linkCheck.Errors} {t('linkErrors')}</p>{/if}
+          </div>
           <ul class="links">
             {#each links as l (l.url)}
               <li>
                 <a href={l.url} target="_blank" rel="noopener noreferrer" dir="ltr">{l.url}</a>
                 <span class="muted">{l.source}{l.tracking_pixel ? ` · ${t('trackingPixels')}` : ''}</span>
                 {#if l.text}<span dir="auto">“{l.text}”</span>{/if}
+                {#if linkStatus.get(l.url)}
+                  {@const s = linkStatus.get(l.url)}
+                  <span class="link-status" class:bad={s && (s.StatusCode === 0 || s.StatusCode >= 400)} dir="ltr">{s?.StatusCode || ''} {s?.Status}</span>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -297,6 +329,23 @@
     padding: 0.3rem 0.7rem;
     text-decoration: none;
     color: inherit;
+  }
+  .link-check {
+    margin-block: 0.5rem;
+  }
+  .link-check label {
+    margin-inline-start: 0.5rem;
+  }
+  .link-check p {
+    margin: 0.3rem 0 0;
+  }
+  .link-status {
+    overflow-wrap: anywhere;
+    color: var(--ok-text, var(--fg));
+  }
+  .link-status.bad {
+    color: var(--danger);
+    font-weight: 600;
   }
   .release {
     margin-block-start: 0.6rem;

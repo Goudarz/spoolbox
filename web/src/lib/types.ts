@@ -98,6 +98,11 @@ export interface Link {
   tracking_pixel: boolean;
 }
 
+export interface LinkCheck {
+  Errors: number;
+  Links: { URL: string; StatusCode: number; Status: string }[];
+}
+
 export interface Code {
   value: string;
   source: 'subject' | 'text' | 'html';

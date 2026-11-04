@@ -3,6 +3,7 @@ import type {
   Code,
   Envelope,
   Link,
+  LinkCheck,
   Message,
   MessagesPage,
   MimePart,
@@ -65,6 +66,8 @@ export const api = {
   webui: () => call<WebUi>('GET', 'api/v1/webui'),
   release: (id: string, to: string[]) =>
     call<string>('POST', `api/v1/message/${encodeURIComponent(id)}/release`, { To: to }),
+  linkCheck: (id: string, follow: boolean) =>
+    call<LinkCheck>('GET', `api/v1/message/${encodeURIComponent(id)}/link-check${q({ follow: follow ? 'true' : undefined })}`),
   envelope: (id: string) => call<Envelope>('GET', `api/v2/messages/${encodeURIComponent(id)}/envelope`),
   mime: (id: string) => call<MimePart>('GET', `api/v2/messages/${encodeURIComponent(id)}/mime`),
   links: (id: string) => call<Link[]>('GET', `api/v2/messages/${encodeURIComponent(id)}/links`),

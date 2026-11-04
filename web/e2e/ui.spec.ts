@@ -171,3 +171,20 @@ test('the release button stays hidden without a relay', async ({ page, request }
   await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Release' })).toHaveCount(0);
 });
+
+test('checking links reports that internal addresses are refused', async ({ page, request }) => {
+  const id = await sendApi(request, 'With a link', '<p><a href="http://127.0.0.1:9/private">internal</a></p>');
+  await indexed(request, id);
+  await page.goto(`m/${id}`);
+  await page.getByRole('tab', { name: 'Links & codes' }).click();
+  await expect(page.getByText('The server requests each link')).toBeVisible();
+  await expect(page.locator('.link-status')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Check links' }).click();
+  await expect(page.getByRole('status')).toContainText('1 links checked · 1 broken');
+  await expect(page.locator('.link-status')).toContainText('internal address');
+
+  const result = await new AxeBuilder({ page }).exclude('iframe').analyze();
+  const serious = result.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  expect(serious.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+});

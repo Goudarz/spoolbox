@@ -118,7 +118,8 @@ flowchart LR
 | relay/release/forward | ✅ سرور، API و دکمهٔ release در UI |
 | POP3 | ✅ RFC 1939 با `TOP`، `UIDL`، `CAPA` و `STLS` |
 | link check | ✅ API و UI؛ فقط با درخواست صریح |
-| HTML check، Prometheus، notifications | ⏳ |
+| Prometheus | ✅ `/metrics` |
+| HTML check، notifications | ⏳ |
 
 **relay و forward:**
 
@@ -162,6 +163,13 @@ flowchart LR
   - cookie و credential ارسال نمی‌شود.
 - **سقف‌ها:** ۱۰۰ لینک در هر پیام، ۱۰ درخواست هم‌زمان در کل سرور، ۱۰ ثانیه برای هر لینک و ۶۰ ثانیه برای کل بررسی. درخواست‌های یک host با فاصلهٔ ۲۰۰ms ارسال می‌شوند، مگر با `--disable-link-check-rate-limit`.
 - **هشدار:** درخواست از سمت سرور ممکن است لینک‌های ردیابی یا لغو عضویت را فعال کند؛ UI پیش از اجرا این را می‌گوید.
+
+**Prometheus:**
+
+- **پیش‌فرض خاموش است.** `--enable-prometheus true` مسیر `/metrics` را روی پورت اصلی و پشت همان auth می‌گذارد. با یک آدرس (مثل `127.0.0.1:9090`) روی listener جدا و بدون auth سرو می‌شود، پس آدرس غیر loopback رد می‌شود مگر با `--allow-unauthenticated-network`.
+- **metricها:** `spoolbox_build_info`، `spoolbox_uptime_seconds`، `spoolbox_messages`، `spoolbox_messages_unread`، `spoolbox_database_size_bytes`، `spoolbox_messages_deleted_total`، `spoolbox_smtp_accepted_total`، `spoolbox_smtp_accepted_bytes_total`، `spoolbox_smtp_rejected_total`، `spoolbox_smtp_ignored_total` و `spoolbox_jobs{kind,state}`.
+- **محدوده:** `spoolbox_jobs` شامل job‌های ناموفق هم هست و تنها راه فعلی برای دیدن شکست‌های webhook، relay و forward بدون خواندن log است. `spoolbox_messages_deleted_total` فقط حذف از طریق API را می‌شمارد، نه retention و POP3.
+- **حریم خصوصی:** فقط شمارش و اندازه؛ بدون آدرس، موضوع یا نام tag.
 
 **تغییر سازگاری:** CRAM-MD5 پشتیبانی نمی‌شود؛ `auth: cram-md5` و `MP_SMTP_RELAY_SECRET` سرور را با خطای صریح متوقف می‌کنند.
 

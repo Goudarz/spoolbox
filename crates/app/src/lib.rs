@@ -4,6 +4,7 @@ pub mod egress;
 mod ingest;
 pub mod jobs;
 pub mod maintenance;
+pub mod relay;
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -132,6 +133,8 @@ pub struct Core {
     pub chaos: Option<Arc<spoolbox_core::chaos::Chaos>>,
     /// Recent SMTP sessions; `None` unless `--smtp-transcripts`.
     pub transcripts: Option<Arc<spoolbox_smtp::Transcripts>>,
+    /// `None` unless a relay server is configured.
+    pub relay: Option<Arc<relay::Relay>>,
 }
 
 impl Core {
@@ -146,9 +149,14 @@ impl Core {
         let workers = std::thread::available_parallelism()
             .map(|n| n.get().min(4))
             .unwrap_or(2);
+        let relay = relay::Relay::new(&s.relay);
         let indexer = Indexer::new(store.clone(), wake, workers)
             .with_tag_rules(&s.tags.rules)
-            .with_webhook(s.webhook.url.as_ref().map(|_| s.webhook.delay));
+            .with_webhook(s.webhook.url.as_ref().map(|_| s.webhook.delay))
+            .with_automatic(relay::Automatic {
+                relay: relay.clone(),
+                forward: s.forward.target.is_some(),
+            });
         let chaos = s.chaos.enabled.then(|| {
             let chaos = spoolbox_core::chaos::Chaos::new(s.chaos.triggers);
             // Already validated when the configuration was loaded.
@@ -165,6 +173,7 @@ impl Core {
             indexer,
             chaos,
             transcripts,
+            relay,
         })
     }
 }

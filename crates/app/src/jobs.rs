@@ -9,6 +9,8 @@ use spoolbox_store::{Job, Store, TagSource};
 use tokio::sync::{Notify, watch};
 use tokio::task::JoinSet;
 
+use crate::relay::Automatic;
+
 /// How long a claimed job is reserved before another worker may take it.
 const LEASE: Duration = Duration::from_secs(300);
 /// Store errors (not parse errors) are retried this many times.
@@ -25,6 +27,8 @@ pub struct Indexer {
     rules: Arc<Vec<(Query, Vec<String>)>>,
     /// Queue a webhook job (after this delay) for every indexed message.
     webhook: Option<Duration>,
+    /// Relay and forward jobs for every indexed message.
+    automatic: Automatic,
 }
 
 impl Indexer {
@@ -36,6 +40,7 @@ impl Indexer {
             limits: Limits::default(),
             rules: Arc::default(),
             webhook: None,
+            automatic: Automatic::default(),
         }
     }
 
@@ -43,6 +48,17 @@ impl Indexer {
     pub fn with_webhook(mut self, delay: Option<Duration>) -> Self {
         self.webhook = delay;
         self
+    }
+
+    /// Queue relay and forward jobs for messages once they are indexed.
+    pub(crate) fn with_automatic(mut self, automatic: Automatic) -> Self {
+        self.automatic = automatic;
+        self
+    }
+
+    #[cfg(test)]
+    pub(crate) fn automatic(&self) -> &Automatic {
+        &self.automatic
     }
 
     /// Messages matching a rule's query get its tags after indexing.
@@ -98,12 +114,19 @@ impl Indexer {
             let limits = self.limits;
             let rules = self.rules.clone();
             let webhook = self.webhook;
+            let automatic = self.automatic.clone();
             set.spawn_blocking(move || {
-                if index_one(&store, &job, &limits, &rules)
-                    && let Some(delay) = webhook
-                    && let Err(e) = store.enqueue("webhook", Some(seq_of(&job)), "{}", delay)
+                if !index_one(&store, &job, &limits, &rules) {
+                    return;
+                }
+                let seq = seq_of(&job);
+                if let Some(delay) = webhook
+                    && let Err(e) = store.enqueue("webhook", Some(seq), "{}", delay)
                 {
                     tracing::error!("cannot queue webhook: {e}");
+                }
+                if let Err(e) = automatic.queue(&store, seq) {
+                    tracing::error!("cannot queue relay or forward: {e}");
                 }
             });
         }

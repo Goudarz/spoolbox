@@ -120,6 +120,26 @@ impl Store {
     }
 
     /// Newest first; pass the last `seq` of a page as `before_seq` for the next (keyset pagination).
+    /// A message by its internal sequence number (background jobs refer to messages by it).
+    pub fn by_seq(&self, seq: i64) -> Result<Option<MessageRow>> {
+        self.read(|c| {
+            let row = c
+                .query_row(
+                    &format!("SELECT {MESSAGE_COLUMNS} FROM messages WHERE seq = ?1"),
+                    [seq],
+                    message_row,
+                )
+                .optional()?;
+            Ok(match row {
+                Some(mut m) => {
+                    m.tags = tags_for(c, m.seq)?;
+                    Some(m)
+                }
+                None => None,
+            })
+        })
+    }
+
     pub fn list(&self, limit: usize, before_seq: Option<i64>) -> Result<Vec<MessageRow>> {
         self.read(|c| {
             let mut st = c.prepare_cached(&format!(

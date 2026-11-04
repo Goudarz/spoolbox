@@ -23,6 +23,11 @@ pub struct Egress {
     pub timeout: Duration,
     /// Response bodies are read up to this size.
     pub max_body: usize,
+    /// Allow ports other than 80 and 443 (T9); an operator's own URL may use any port.
+    pub any_port: bool,
+    /// Lets a test server on this port stand in for a public host.
+    #[cfg(test)]
+    pub exempt_port: Option<u16>,
 }
 
 impl Default for Egress {
@@ -32,6 +37,9 @@ impl Default for Egress {
             allow_untrusted_tls: false,
             timeout: Duration::from_secs(10),
             max_body: 1024 * 1024,
+            any_port: false,
+            #[cfg(test)]
+            exempt_port: None,
         }
     }
 }
@@ -105,10 +113,19 @@ impl Egress {
         if addrs.is_empty() {
             return Err(format!("{host} has no addresses"));
         }
+        #[cfg(test)]
+        if self.exempt_port == Some(port) {
+            return Ok(addrs[0]);
+        }
         // One internal answer is enough to refuse: a later connection could use it.
         if !self.allow_internal && addrs.iter().any(|a| is_internal(a.ip())) {
             return Err(format!(
                 "{host} resolves to an internal address (allow with --allow-internal-http-requests)"
+            ));
+        }
+        if !self.any_port && !self.allow_internal && !matches!(port, 80 | 443) {
+            return Err(format!(
+                "port {port} is not checked (allow with --allow-internal-http-requests)"
             ));
         }
         Ok(addrs[0])
@@ -246,11 +263,12 @@ impl Egress {
         &self,
         url: &Url,
         method: &str,
+        headers: &[(&str, String)],
         max: usize,
     ) -> Result<(Url, Response), String> {
         let mut current = url.clone();
         for _ in 0..=max {
-            let res = self.request(method, &current, &[], None).await?;
+            let res = self.request(method, &current, headers, None).await?;
             match (res.status, &res.location) {
                 (301 | 302 | 303 | 307 | 308, Some(loc)) => {
                     current = current
@@ -398,7 +416,7 @@ mod tests {
         let url = Url::parse(&format!("http://{addr}/start")).expect("url");
         assert!(
             strict
-                .get_following(&url, "GET", 3)
+                .get_following(&url, "GET", &[], 3)
                 .await
                 .expect_err("blocked")
                 .contains("internal")
@@ -409,7 +427,7 @@ mod tests {
             ..Egress::default()
         };
         let err = open
-            .get_following(&url, "GET", 0)
+            .get_following(&url, "GET", &[], 0)
             .await
             .expect_err("redirect limit");
         assert_eq!(err, "more than 0 redirects");

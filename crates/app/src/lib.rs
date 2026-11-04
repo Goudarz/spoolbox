@@ -3,6 +3,7 @@
 pub mod egress;
 mod ingest;
 pub mod jobs;
+pub mod linkcheck;
 pub mod maintenance;
 pub mod pop3;
 pub mod relay;

@@ -63,8 +63,16 @@ export interface Message {
   Attachments: Attachment[];
 }
 
+export interface MessageRelay {
+  Enabled: boolean;
+  SMTPServer: string;
+  AllowedRecipients: string;
+  BlockedRecipients: string;
+}
+
 export interface WebUi {
   Label: string;
+  MessageRelay?: MessageRelay;
   ChaosEnabled: boolean;
   DuplicatesIgnored: boolean;
   HideDeleteAllButton: boolean;

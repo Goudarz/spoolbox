@@ -122,3 +122,52 @@ test('the smtp conversation is shown with secrets redacted', async ({ page, requ
   await expect(panel).toContainText('# message received');
   await expect(panel).not.toContainText('body');
 });
+
+test('a message can be released to an allowed address', async ({ page, request }) => {
+  const upstream = 'http://127.0.0.1:28626/';
+  await request.delete(`${upstream}api/v1/messages`, { data: {} });
+  const id = await sendApi(request, 'Please release me');
+  await indexed(request, id);
+  await page.goto(`m/${id}`);
+
+  await page.getByRole('button', { name: 'Release' }).click();
+  const form = page.getByRole('form', { name: 'Release' });
+  await expect(form).toContainText('127.0.0.1:21626');
+
+  // Refused by the server: the reason is shown and nothing leaves.
+  await form.getByLabel('Send to').fill('dev@attacker.test');
+  await form.getByRole('button', { name: 'Queue for delivery' }).click();
+  await expect(form.getByRole('alert')).toContainText('not allowed');
+
+  await form.getByLabel('Send to').fill('dev@example.com');
+  await form.getByRole('button', { name: 'Queue for delivery' }).click();
+  await expect(form.getByRole('status')).toContainText('Queued');
+  await expect(form.getByRole('alert')).toHaveCount(0);
+
+  await expect
+    .poll(async () => {
+      const res = await request.get(`${upstream}api/v1/messages`);
+      return ((await res.json()) as { messages_count: number }).messages_count;
+    })
+    .toBe(1);
+  const res = await request.get(`${upstream}api/v1/messages`);
+  const list = (await res.json()) as { messages: { ID: string; Subject: string }[] };
+  expect(list.messages[0].Subject).toBe('Please release me');
+  const envelope = await request.get(`${upstream}api/v2/messages/${list.messages[0].ID}/envelope`);
+  expect(await envelope.text()).toContain('dev@example.com');
+  expect(await envelope.text()).not.toContain('attacker.test');
+
+  const result = await new AxeBuilder({ page }).exclude('iframe').analyze();
+  const serious = result.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  expect(serious.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+});
+
+test('the release button stays hidden without a relay', async ({ page, request }) => {
+  await page.route('**/api/v1/webui', (route) =>
+    route.fulfill({ json: { Label: '', ChaosEnabled: false, DuplicatesIgnored: false, HideDeleteAllButton: false, MessageRelay: { Enabled: false } } }),
+  );
+  const id = await sendApi(request, 'No relay here');
+  await page.goto(`m/${id}`);
+  await expect(page.getByRole('button', { name: 'Mark unread' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Release' })).toHaveCount(0);
+});

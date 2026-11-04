@@ -63,6 +63,8 @@ export const api = {
   setTags: (id: string, tags: string[]) => call<string>('PUT', 'api/v1/tags', { IDs: [id], Tags: tags }),
   tags: () => call<string[]>('GET', 'api/v1/tags'),
   webui: () => call<WebUi>('GET', 'api/v1/webui'),
+  release: (id: string, to: string[]) =>
+    call<string>('POST', `api/v1/message/${encodeURIComponent(id)}/release`, { To: to }),
   envelope: (id: string) => call<Envelope>('GET', `api/v2/messages/${encodeURIComponent(id)}/envelope`),
   mime: (id: string) => call<MimePart>('GET', `api/v2/messages/${encodeURIComponent(id)}/mime`),
   links: (id: string) => call<Link[]>('GET', `api/v2/messages/${encodeURIComponent(id)}/links`),

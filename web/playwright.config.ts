@@ -7,6 +7,9 @@ const exe = process.platform === 'win32' ? '.exe' : '';
 const bin = process.env.SPOOLBOX_BIN ?? resolve(import.meta.dirname, '..', 'target', 'debug', `spoolbox${exe}`);
 const http = 28625;
 const smtp = 21625;
+// A second server that receives what the first one releases.
+const upstreamHttp = 28626;
+const upstreamSmtp = 21626;
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,11 +20,25 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${http}/`,
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: `"${bin}" --listen 127.0.0.1:${http} --smtp 127.0.0.1:${smtp} --max 0 --smtp-transcripts --log-level warn`,
-    url: `http://127.0.0.1:${http}/readyz`,
-    reuseExistingServer: false,
-    timeout: 30_000,
-  },
+  webServer: [
+    {
+      command: `"${bin}" --listen 127.0.0.1:${http} --smtp 127.0.0.1:${smtp} --max 0 --smtp-transcripts --log-level warn`,
+      url: `http://127.0.0.1:${http}/readyz`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: {
+        SPOOLBOX_SMTP_RELAY_HOST: '127.0.0.1',
+        SPOOLBOX_SMTP_RELAY_PORT: String(upstreamSmtp),
+        SPOOLBOX_SMTP_RELAY_ALLOWED_RECIPIENTS: '@example\\.com$',
+        SPOOLBOX_SMTP_RELAY_RATE_LIMIT: '0',
+      },
+    },
+    {
+      command: `"${bin}" --listen 127.0.0.1:${upstreamHttp} --smtp 127.0.0.1:${upstreamSmtp} --log-level warn`,
+      url: `http://127.0.0.1:${upstreamHttp}/readyz`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+  ],
   metadata: { smtp: `127.0.0.1:${smtp}` },
 });

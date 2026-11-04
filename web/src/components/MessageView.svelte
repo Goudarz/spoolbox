@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, ApiError, partUrl, rawUrl, thumbUrl } from '../lib/api';
-  import { drop, patch } from '../lib/mailbox.svelte';
+  import { box, drop, patch } from '../lib/mailbox.svelte';
   import { go } from '../lib/router.svelte';
   import { formatDate, formatSize, t } from '../lib/i18n.svelte';
   import type { Address, Code, Envelope, Link, Message, MimePart, Transcript } from '../lib/types';
@@ -22,6 +22,11 @@
   let envelope: Envelope | undefined = $state();
   let transcript: Transcript | null | undefined = $state();
   let copied = $state('');
+  let releasing = $state(false);
+  let releaseTo = $state('');
+  let releaseBusy = $state(false);
+  let releaseError = $state('');
+  let releaseDone = $state(false);
 
   const parts = $derived(msg ? [...msg.Attachments, ...msg.Inline] : []);
   const pixels = $derived(links?.filter((l) => l.tracking_pixel).length ?? 0);
@@ -105,6 +110,27 @@
     go({ name: 'inbox' });
   }
 
+  async function release(e: SubmitEvent) {
+    e.preventDefault();
+    if (!msg) return;
+    const to = releaseTo
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean);
+    releaseBusy = true;
+    releaseError = '';
+    releaseDone = false;
+    try {
+      await api.release(msg.ID, to);
+      releaseDone = true;
+      releaseTo = '';
+    } catch (err) {
+      releaseError = err instanceof ApiError ? err.message : t('error');
+    } finally {
+      releaseBusy = false;
+    }
+  }
+
   async function copy(value: string) {
     await navigator.clipboard.writeText(value);
     copied = value;
@@ -118,9 +144,29 @@
     {#if msg}
       <button type="button" onclick={markUnread}>{t('markUnread')}</button>
       <a class="button" href={rawUrl(msg.ID)} download>{t('download')}</a>
+      {#if box.ui.MessageRelay?.Enabled}
+        <button type="button" aria-expanded={releasing} onclick={() => (releasing = !releasing)}>{t('release')}</button>
+      {/if}
       <button type="button" class="danger" onclick={remove}>{t('delete')}</button>
     {/if}
   </div>
+
+  {#if msg && releasing && box.ui.MessageRelay?.Enabled}
+    <form class="release" aria-label={t('release')} onsubmit={release}>
+      <label for="release-to">{t('releaseTo')}</label>
+      <div class="release-row">
+        <input id="release-to" type="text" dir="ltr" autocomplete="off" spellcheck="false" required bind:value={releaseTo} />
+        <button type="submit" disabled={releaseBusy}>{t('releaseSend')}</button>
+      </div>
+      <p class="muted">
+        {t('releaseVia')} <bdi>{box.ui.MessageRelay.SMTPServer}</bdi>
+        {#if box.ui.MessageRelay.AllowedRecipients}· {t('releaseAllowed')}: <code>{box.ui.MessageRelay.AllowedRecipients}</code>{/if}
+        {#if box.ui.MessageRelay.BlockedRecipients}· {t('releaseBlocked')}: <code>{box.ui.MessageRelay.BlockedRecipients}</code>{/if}
+      </p>
+      {#if releaseError}<p role="alert">{releaseError}</p>{/if}
+      {#if releaseDone}<p role="status">{t('releaseQueued')}</p>{/if}
+    </form>
+  {/if}
 
   {#if error}
     <p role="alert">{error}</p>
@@ -251,6 +297,30 @@
     padding: 0.3rem 0.7rem;
     text-decoration: none;
     color: inherit;
+  }
+  .release {
+    margin-block-start: 0.6rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .release p {
+    margin: 0.4rem 0 0;
+    overflow-wrap: anywhere;
+  }
+  .release-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-block-start: 0.3rem;
+  }
+  .release-row input {
+    flex: 1 1 16rem;
+    min-width: 0;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
   }
   h1 {
     font-size: 1.3rem;

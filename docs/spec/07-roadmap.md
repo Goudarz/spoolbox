@@ -116,7 +116,8 @@ flowchart LR
 | tag rules | ✅ `--tag`، `--tags-config`، `[[tags.rules]]` |
 | webhook | ✅ `--webhook-url` با outbox، retry و امضای HMAC؛ فقط https یا همین ماشین مگر با `--allow-internal-http-requests`؛ timeout پنج ثانیه؛ هدر امضا `X-Spoolbox-Signature` است |
 | relay/release/forward | ✅ سرور، API و دکمهٔ release در UI |
-| POP3، link check، HTML check، Prometheus، notifications | ⏳ |
+| POP3 | ✅ RFC 1939 با `TOP`، `UIDL`، `CAPA` و `STLS` |
+| link check، HTML check، Prometheus، notifications | ⏳ |
 
 **relay و forward:**
 
@@ -139,6 +140,15 @@ flowchart LR
 - مقصدی که همان پورت SMTP خود سرور روی loopback باشد رد می‌شود تا حلقه ایجاد نشود.
 - password در `Debug`، `/api/v1/webui` و پیام‌های خطای YAML دیده نمی‌شود.
 - هر ارسال با گیرنده‌هایش log می‌شود.
+
+**POP3:**
+
+- **پیش‌فرض خاموش است.** با `--pop3 <آدرس>` فعال می‌شود و بدون کاربر (`--pop3-auth-file` یا `MP_POP3_AUTH`) سرور بالا نمی‌آید، چون POP3 می‌تواند همهٔ پیام‌ها را بخواند و حذف کند. گزینه‌های POP3 بدون `--pop3` هم خطا می‌دهند.
+- **یک صندوق مشترک:** همهٔ کاربران همان پیام‌ها را می‌بینند. session حداکثر ۱۰٬۰۰۰ پیام جدیدتر را نشان می‌دهد، قدیمی‌ترین با شمارهٔ ۱.
+- **رمزنگاری:** با `--pop3-tls-cert` (یا `auto`) و `--pop3-tls-key` فرمان `STLS` فعال می‌شود و کلاینت‌های غیر loopback بدون آن نمی‌توانند `USER` و `PASS` بفرستند. فقط STLS پشتیبانی می‌شود، نه TLS از بایت اول (ADR-016). گوش دادن روی شبکه بدون TLS رد می‌شود، مگر با `--allow-unauthenticated-network`.
+- **حذف فقط با `QUIT`:** قطع اتصال هیچ پیامی را حذف نمی‌کند (RFC 1939). `RETR` پیام را خوانده‌شده می‌کند، ولی `TOP` نه.
+- **`LIST` و `STAT`:** اندازهٔ ذخیره‌شده را می‌گویند. پیامی که با LF ساده import شده باشد موقع ارسال به CRLF تبدیل می‌شود و کمی بزرگ‌تر از عدد اعلام‌شده است.
+- **کنترل‌های امنیتی (T19):** تأخیر تلاش ناموفق per-IP که با هر شکست دو برابر می‌شود (از ۲۰۰ms تا ۵s) و با اتصال دوباره صفر نمی‌شود؛ قطع اتصال پس از سه تلاش؛ پاسخ یکسان برای کاربر ناشناس و password غلط؛ دور ریختن فرمان‌های ارسال‌شده پیش از handshake (STLS injection)؛ سقف طول خط و تعداد اتصال. `APOP` و `AUTH` عمداً پیاده نشده‌اند.
 
 **تغییر سازگاری:** CRAM-MD5 پشتیبانی نمی‌شود؛ `auth: cram-md5` و `MP_SMTP_RELAY_SECRET` سرور را با خطای صریح متوقف می‌کنند.
 

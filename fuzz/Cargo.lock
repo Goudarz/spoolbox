@@ -768,6 +768,7 @@ version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
  "spoolbox-mime",
+ "spoolbox-pop3",
  "spoolbox-smtp",
 ]
 
@@ -780,6 +781,17 @@ dependencies = [
  "regex",
  "sha1",
  "sha2",
+]
+
+[[package]]
+name = "spoolbox-pop3"
+version = "0.1.0-dev"
+dependencies = [
+ "rustls",
+ "spoolbox-auth",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
 ]
 
 [[package]]

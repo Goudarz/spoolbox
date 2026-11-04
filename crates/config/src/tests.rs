@@ -999,3 +999,16 @@ fn relay_webhook_and_network_in_the_config_file() {
     );
     assert!(s.egress.allow_internal && s.egress.allow_untrusted_tls);
 }
+
+#[test]
+fn link_check_options() {
+    let s = load_ok(Sources::default()).settings.egress;
+    assert!(!s.link_check_disabled && s.link_check_rate_limit);
+    let s = load_ok(Sources {
+        cli: cli(&[("disable-link-check", None)]),
+        env: env(&[("MP_DISABLE_LINK_CHECK_RATE_LIMIT", "true")]),
+    })
+    .settings
+    .egress;
+    assert!(s.link_check_disabled && !s.link_check_rate_limit);
+}

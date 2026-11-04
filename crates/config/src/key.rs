@@ -73,6 +73,8 @@ pub enum Key {
     WebhookSecret,
     AllowInternalHttpRequests,
     AllowUntrustedTls,
+    DisableLinkCheck,
+    DisableLinkCheckRateLimit,
     SmtpRelayConfig,
     SmtpRelayAll,
     SmtpRelayMatching,
@@ -116,6 +118,8 @@ impl Key {
                 | Key::McpAllowDelete
                 | Key::AllowInternalHttpRequests
                 | Key::AllowUntrustedTls
+                | Key::DisableLinkCheck
+                | Key::DisableLinkCheckRateLimit
                 | Key::SmtpRelayAll
         )
     }
@@ -424,7 +428,9 @@ impl Builder {
             | Key::SmtpTranscripts
             | Key::McpAllowDelete
             | Key::AllowInternalHttpRequests
-            | Key::AllowUntrustedTls => {
+            | Key::AllowUntrustedTls
+            | Key::DisableLinkCheck
+            | Key::DisableLinkCheckRateLimit => {
                 let on = parse_bool(v).ok_or_else(|| invalid("expected true or false"))?;
                 match key {
                     Key::SmtpRequireStarttls => s.smtp.require_starttls = on,
@@ -446,6 +452,8 @@ impl Builder {
                     Key::McpAllowDelete => s.http.mcp_allow_delete = on,
                     Key::AllowInternalHttpRequests => s.egress.allow_internal = on,
                     Key::AllowUntrustedTls => s.egress.allow_untrusted_tls = on,
+                    Key::DisableLinkCheck => s.egress.link_check_disabled = on,
+                    Key::DisableLinkCheckRateLimit => s.egress.link_check_rate_limit = !on,
                     _ => s.tags.username = on,
                 }
             }

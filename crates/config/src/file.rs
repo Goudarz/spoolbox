@@ -156,6 +156,8 @@ struct Network {
     allow_unauthenticated_network: Option<bool>,
     allow_internal_http_requests: Option<bool>,
     allow_untrusted_tls: Option<bool>,
+    disable_link_check: Option<bool>,
+    disable_link_check_rate_limit: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -435,6 +437,16 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
         Key::AllowUntrustedTls,
         "network.allow_untrusted_tls",
         flag(network.allow_untrusted_tls),
+    );
+    push(
+        Key::DisableLinkCheck,
+        "network.disable_link_check",
+        flag(network.disable_link_check),
+    );
+    push(
+        Key::DisableLinkCheckRateLimit,
+        "network.disable_link_check_rate_limit",
+        flag(network.disable_link_check_rate_limit),
     );
 
     let webhook = cfg.webhook.unwrap_or_default();

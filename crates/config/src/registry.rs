@@ -613,7 +613,19 @@ pub const FLAGS: &[FlagSpec] = &[
         "Accept invalid TLS certificates in link checks",
         Active(Key::AllowUntrustedTls),
     ),
-    planned("disable-link-check-rate-limit", false, "P7", W),
+    flag(
+        "disable-link-check-rate-limit",
+        None,
+        false,
+        "Do not space out link check requests to the same host",
+        Active(Key::DisableLinkCheckRateLimit),
+    ),
+    native(
+        "disable-link-check",
+        false,
+        "Turn off link checks, so the server never fetches URLs found in messages",
+        Active(Key::DisableLinkCheck),
+    ),
 ];
 
 /// Short options only exist for compatibility flags; native flags use long names.

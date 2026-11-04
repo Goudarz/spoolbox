@@ -127,10 +127,25 @@ pub struct ForwardSettings {
 }
 
 /// Policy for requests to URLs found in messages (link check).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EgressSettings {
     pub allow_internal: bool,
     pub allow_untrusted_tls: bool,
+    /// The server never makes requests for link checks.
+    pub link_check_disabled: bool,
+    /// Requests to one host are spaced out.
+    pub link_check_rate_limit: bool,
+}
+
+impl Default for EgressSettings {
+    fn default() -> Self {
+        Self {
+            allow_internal: false,
+            allow_untrusted_tls: false,
+            link_check_disabled: false,
+            link_check_rate_limit: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

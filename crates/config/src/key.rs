@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::error::{ConfigError, Origin};
 use crate::relay::{Field, RawTarget};
-use crate::settings::{HIDEABLE_EXTENSIONS, LogFormat, LogLevel, MIB, Settings};
+use crate::settings::{HIDEABLE_EXTENSIONS, LogFormat, LogLevel, MIB, Prometheus, Settings};
 
 /// A setting that can be assigned from a string by any configuration source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +73,7 @@ pub enum Key {
     WebhookSecret,
     AllowInternalHttpRequests,
     AllowUntrustedTls,
+    EnablePrometheus,
     DisableLinkCheck,
     DisableLinkCheckRateLimit,
     SmtpRelayConfig,
@@ -358,6 +359,18 @@ impl Builder {
             Key::Pop3Auth => self.pop3_auth.inline = non_empty(v, origin),
             Key::Pop3TlsCert => self.pop3_tls_cert = non_empty(v, origin),
             Key::Pop3TlsKey => self.pop3_tls_key = non_empty(v, origin),
+            Key::EnablePrometheus => {
+                s.prometheus = match parse_bool(v) {
+                    Some(true) => Prometheus::MainPort,
+                    Some(false) => Prometheus::Off,
+                    None if v.is_empty() => Prometheus::Off,
+                    None => Prometheus::Listen(v.parse().map_err(
+                        |e: spoolbox_core::ListenAddrError| {
+                            invalid(&format!("expected true, false or an address: {e}"))
+                        },
+                    )?),
+                }
+            }
             Key::SmtpRelayConfig => self.relay_config = (!v.is_empty()).then(|| v.to_string()),
             Key::SmtpForwardConfig => self.forward_config = (!v.is_empty()).then(|| v.to_string()),
             Key::SmtpRelayMatching => self.relay_matching = (!v.is_empty()).then(|| v.to_string()),

@@ -177,13 +177,13 @@ fn pop3_is_off_by_default_and_needs_users() {
 #[test]
 fn harmless_planned_options_warn() {
     let l = load_ok(Sources {
-        cli: cli(&[("enable-prometheus", Some("true"))]),
+        cli: cli(&[("use-message-dates", None)]),
         env: env(&[]),
     });
     let text: Vec<&str> = l.diagnostics.iter().map(|d| d.message.as_str()).collect();
     assert!(
         text.iter()
-            .any(|m| m.contains("--enable-prometheus") && m.contains("P7")),
+            .any(|m| m.contains("--use-message-dates") && m.contains("P4")),
         "{text:?}"
     );
 }
@@ -1011,4 +1011,52 @@ fn link_check_options() {
     .settings
     .egress;
     assert!(s.link_check_disabled && !s.link_check_rate_limit);
+}
+
+#[test]
+fn prometheus_modes() {
+    let mode = |value: &str| {
+        load_ok(Sources {
+            cli: cli(&[("enable-prometheus", Some(value))]),
+            env: vec![],
+        })
+        .settings
+        .prometheus
+    };
+    assert_eq!(
+        load_ok(Sources::default()).settings.prometheus,
+        Prometheus::Off
+    );
+    assert_eq!(mode("true"), Prometheus::MainPort);
+    assert_eq!(mode("false"), Prometheus::Off);
+    assert!(matches!(mode("127.0.0.1:9090"), Prometheus::Listen(a) if a.port == 9090));
+
+    let refused = |args: &[(&str, Option<&str>)]| {
+        load(&Sources {
+            cli: cli(args),
+            env: vec![],
+        })
+        .expect_err("must refuse")
+        .to_string()
+    };
+    let err = refused(&[("enable-prometheus", Some("maybe"))]);
+    assert!(err.contains("an address"), "{err}");
+    let err = refused(&[("enable-prometheus", Some("0.0.0.0:9090"))]);
+    assert!(err.contains("without authentication"), "{err}");
+    let err = refused(&[
+        ("enable-prometheus", Some("127.0.0.1:2525")),
+        ("smtp", Some("127.0.0.1:2525")),
+    ]);
+    assert!(err.contains("already used"), "{err}");
+    let accepted = load_ok(Sources {
+        cli: cli(&[
+            ("enable-prometheus", Some("0.0.0.0:9090")),
+            ("allow-unauthenticated-network", None),
+        ]),
+        env: vec![],
+    });
+    assert!(matches!(
+        accepted.settings.prometheus,
+        Prometheus::Listen(_)
+    ));
 }

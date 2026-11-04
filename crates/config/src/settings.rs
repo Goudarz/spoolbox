@@ -23,6 +23,18 @@ pub struct Settings {
     pub forward: ForwardSettings,
     /// Off unless `--pop3` is given.
     pub pop3: Option<Pop3Settings>,
+    pub prometheus: Prometheus,
+}
+
+/// `--enable-prometheus`: `true` for `/metrics` on the main port, or an address of its own.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum Prometheus {
+    #[default]
+    Off,
+    /// Behind the same authentication as the web UI and API.
+    MainPort,
+    /// Without authentication, so it stays on loopback unless the operator accepts that.
+    Listen(ListenAddr),
 }
 
 /// `--pop3`. Users are mandatory: every message can be read and deleted through it.
@@ -365,6 +377,7 @@ impl Default for Settings {
             relay: RelaySettings::default(),
             forward: ForwardSettings::default(),
             pop3: None,
+            prometheus: Prometheus::Off,
             log: LogSettings {
                 level: LogLevel::Info,
                 format: LogFormat::Text,

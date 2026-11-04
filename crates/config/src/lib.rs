@@ -20,9 +20,9 @@ pub use key::Key;
 pub use relay::{Field as RelayField, is_plain_address};
 pub use settings::{
     ChaosSettings, EgressSettings, ForwardSettings, HIDEABLE_EXTENSIONS, HttpSettings, LogFormat,
-    LogLevel, LogSettings, MIB, NetworkSettings, Pop3Settings, RelaySettings, Settings, SmtpLogin,
-    SmtpMechanism, SmtpSecurity, SmtpSettings, SmtpTarget, StorageSettings, TagRule, TagSettings,
-    TlsSource, WebhookSettings,
+    LogLevel, LogSettings, MIB, NetworkSettings, Pop3Settings, Prometheus, RelaySettings, Settings,
+    SmtpLogin, SmtpMechanism, SmtpSecurity, SmtpSettings, SmtpTarget, StorageSettings, TagRule,
+    TagSettings, TlsSource, WebhookSettings,
 };
 
 use key::{AuthSources, Builder, parse_compat_bool};
@@ -482,6 +482,24 @@ fn finish(
             })
         }
     };
+    if let Prometheus::Listen(listen) = &s.prometheus {
+        if !listen.is_loopback() && !s.network.allow_unauthenticated_network {
+            return Err(ConfigError::Conflict(format!(
+                "--enable-prometheus {listen} would expose metrics without authentication: use a loopback address, `true` for the main port, or --allow-unauthenticated-network to accept that"
+            )));
+        }
+        let pop3 = s.pop3.as_ref().map(|p| &p.listen);
+        if listen.port != 0
+            && [Some(&s.http.listen), Some(&s.smtp.listen), pop3]
+                .into_iter()
+                .flatten()
+                .any(|other| other.to_socket_addr() == listen.to_socket_addr())
+        {
+            return Err(ConfigError::Conflict(format!(
+                "--enable-prometheus: {listen} is already used by another listener"
+            )));
+        }
+    }
     if let Some((raw, origin)) = &b.cors {
         s.http.cors_origins = cors_origins(raw, origin, &mut diagnostics);
     }

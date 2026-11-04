@@ -22,6 +22,14 @@ struct FileConfig {
     relay: Option<Relay>,
     forward: Option<Forward>,
     pop3: Option<Pop3>,
+    metrics: Option<Metrics>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct Metrics {
+    /// `true`, `false` or an address.
+    prometheus: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -469,6 +477,12 @@ pub(crate) fn parse(text: &str, path: &Path) -> Result<Parsed, ConfigError> {
     push(Key::SmtpRelayMatching, "relay.matching", relay.matching);
     let forward = cfg.forward.unwrap_or_default();
     push(Key::SmtpForwardConfig, "forward.config", forward.config);
+    let metrics = cfg.metrics.unwrap_or_default();
+    push(
+        Key::EnablePrometheus,
+        "metrics.prometheus",
+        metrics.prometheus,
+    );
     let pop3 = cfg.pop3.unwrap_or_default();
     push(Key::Pop3Listen, "pop3.listen", pop3.listen);
     push(Key::Pop3AuthFile, "pop3.auth_file", pop3.auth_file);

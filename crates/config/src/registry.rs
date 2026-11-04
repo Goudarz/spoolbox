@@ -598,7 +598,13 @@ pub const FLAGS: &[FlagSpec] = &[
         "Seconds to wait before sending a webhook",
         Active(Key::WebhookDelay),
     ),
-    planned("enable-prometheus", true, "P7", W),
+    flag(
+        "enable-prometheus",
+        None,
+        true,
+        "Serve Prometheus metrics: `true` for /metrics on the main port, or an address",
+        Active(Key::EnablePrometheus),
+    ),
     flag(
         "allow-internal-http-requests",
         None,

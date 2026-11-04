@@ -82,6 +82,18 @@ impl Store {
         })
     }
 
+    /// How many jobs there are of each kind and state: (kind, state, count).
+    pub fn job_counts(&self) -> Result<Vec<(String, String, u64)>> {
+        self.read(|c| {
+            let mut st = c.prepare(
+                "SELECT kind, state, COUNT(*) FROM outbox GROUP BY kind, state ORDER BY kind, state",
+            )?;
+            Ok(st
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? as u64)))?
+                .collect::<std::result::Result<_, _>>()?)
+        })
+    }
+
     /// Stores the MIME index of a message and finishes its job. `follow_ups` are queued in the
     /// same transaction, so a crash cannot lose them or queue them twice.
     pub fn complete_index(

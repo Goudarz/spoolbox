@@ -48,8 +48,10 @@ fn run_index_jobs(store: &Store) -> usize {
         let seq = job.message_seq.expect("seq");
         let raw = store.raw_for_job(seq).expect("raw");
         match index(&raw, &Limits::default()) {
-            Ok(ix) => store.complete_index(job, seq, &ix).expect("complete"),
-            Err(e) => store.fail_index(job, seq, &e.to_string()).expect("fail"),
+            Ok(ix) => store.complete_index(job, seq, &ix, &[]).expect("complete"),
+            Err(e) => store
+                .fail_index(job, seq, &e.to_string(), &[])
+                .expect("fail"),
         }
     }
     jobs.len()
@@ -493,6 +495,63 @@ fn generic_jobs_carry_payloads_and_can_fail() {
     );
     assert!(
         s.claim_jobs("webhook", 10, Duration::from_secs(30))
+            .expect("claim")
+            .is_empty()
+    );
+}
+
+#[test]
+fn follow_up_jobs_are_queued_with_the_index() {
+    let store = Store::open(StoreOptions::default()).expect("store");
+    put(&store, b"Subject: x\r\n\r\nbody\r\n", &["a@x.test"], &[]);
+    put(&store, b"Subject: y\r\n\r\nbody\r\n", &["a@x.test"], &[]);
+    let jobs = store
+        .claim_jobs("index", 2, Duration::from_secs(60))
+        .expect("claim");
+    let follow_up = |payload: &str| crate::NewJob {
+        kind: "relay",
+        payload: payload.to_string(),
+        delay: Duration::ZERO,
+    };
+    let seq = jobs[0].message_seq.expect("seq");
+    let ix = spoolbox_mime::index(
+        b"Subject: x\r\n\r\nbody\r\n",
+        &spoolbox_mime::Limits::default(),
+    )
+    .expect("index");
+    store
+        .complete_index(&jobs[0], seq, &ix, &[follow_up("{\"a\":1}")])
+        .expect("complete");
+    let seq = jobs[1].message_seq.expect("seq");
+    store
+        .fail_index(&jobs[1], seq, "broken", &[follow_up("{\"a\":2}")])
+        .expect("fail");
+
+    let queued = store
+        .claim_jobs("relay", 5, Duration::from_secs(60))
+        .expect("claim");
+    let payloads: Vec<_> = queued.iter().map(|j| j.payload.as_str()).collect();
+    assert_eq!(payloads, ["{\"a\":1}", "{\"a\":2}"]);
+    assert_eq!(queued[0].message_seq, jobs[0].message_seq);
+
+    // A message deleted meanwhile leaves nothing behind.
+    put(&store, b"Subject: z\r\n\r\nbody\r\n", &["a@x.test"], &[]);
+    let job = store
+        .claim_jobs("index", 1, Duration::from_secs(60))
+        .expect("claim")
+        .remove(0);
+    let seq = job.message_seq.expect("seq");
+    let id = store.by_seq(seq).expect("row").expect("row").id;
+    store.delete(&[id]).expect("delete");
+    store
+        .fail_index(&job, seq, "broken", &[follow_up("{}")])
+        .expect("fail");
+    store
+        .complete_index(&job, seq, &ix, &[follow_up("{}")])
+        .expect("complete");
+    assert!(
+        store
+            .claim_jobs("relay", 5, Duration::from_secs(60))
             .expect("claim")
             .is_empty()
     );

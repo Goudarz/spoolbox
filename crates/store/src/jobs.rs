@@ -19,6 +19,34 @@ pub struct Job {
     pub payload: String,
 }
 
+/// A job to queue in the same transaction as the work that causes it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewJob {
+    pub kind: &'static str,
+    pub payload: String,
+    pub delay: Duration,
+}
+
+fn insert_follow_ups(
+    tx: &rusqlite::Transaction<'_>,
+    seq: i64,
+    now: i64,
+    jobs: &[NewJob],
+) -> rusqlite::Result<()> {
+    for job in jobs {
+        tx.execute(
+            "INSERT INTO outbox (kind, message_seq, payload, next_at) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                job.kind,
+                seq,
+                job.payload,
+                now + job.delay.as_micros() as i64
+            ],
+        )?;
+    }
+    Ok(())
+}
+
 impl Store {
     pub fn claim_jobs(&self, kind: &str, limit: usize, lease: Duration) -> Result<Vec<Job>> {
         let now = now_micros();
@@ -54,8 +82,15 @@ impl Store {
         })
     }
 
-    /// Stores the MIME index of a message and finishes its job.
-    pub fn complete_index(&self, job: &Job, seq: i64, ix: &MessageIndex) -> Result<()> {
+    /// Stores the MIME index of a message and finishes its job. `follow_ups` are queued in the
+    /// same transaction, so a crash cannot lose them or queue them twice.
+    pub fn complete_index(
+        &self,
+        job: &Job,
+        seq: i64,
+        ix: &MessageIndex,
+        follow_ups: &[NewJob],
+    ) -> Result<()> {
         let now = now_micros();
         let mut conn = self.writer();
         let tx = conn.transaction()?;
@@ -118,6 +153,7 @@ impl Store {
             params![now, id, serde_json::json!({ "status": "indexed" }).to_string()],
         )?;
         let event_seq = tx.last_insert_rowid();
+        insert_follow_ups(&tx, seq, now, follow_ups)?;
         tx.execute("DELETE FROM outbox WHERE id = ?1", [job.id])?;
         tx.commit()?;
         drop(conn);
@@ -126,7 +162,13 @@ impl Store {
     }
 
     /// Records that a message cannot be parsed. The raw message stays available.
-    pub fn fail_index(&self, job: &Job, seq: i64, error: &str) -> Result<()> {
+    pub fn fail_index(
+        &self,
+        job: &Job,
+        seq: i64,
+        error: &str,
+        follow_ups: &[NewJob],
+    ) -> Result<()> {
         let now = now_micros();
         let mut conn = self.writer();
         let tx = conn.transaction()?;
@@ -135,6 +177,7 @@ impl Store {
                 r.get(0)
             })
             .ok();
+        let id_found = id.is_some();
         if let Some(id) = id {
             tx.execute(
                 "UPDATE messages SET status = 'parse_failed', parse_error = ?2 WHERE seq = ?1",
@@ -146,6 +189,9 @@ impl Store {
             )?;
         }
         let event_seq = tx.last_insert_rowid();
+        if id_found {
+            insert_follow_ups(&tx, seq, now, follow_ups)?;
+        }
         tx.execute("DELETE FROM outbox WHERE id = ?1", [job.id])?;
         tx.commit()?;
         drop(conn);

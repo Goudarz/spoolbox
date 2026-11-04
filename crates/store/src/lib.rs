@@ -22,7 +22,7 @@ use tokio::sync::watch;
 pub use error::StoreError;
 pub use events::Event;
 pub use ingest::{Inserted, NewMessage, TagSource, clean_tag};
-pub use jobs::Job;
+pub use jobs::{Job, NewJob};
 pub use query::{MessageRow, Part, Recipient};
 pub use search::{Page, SearchResult};
 pub use spool::{SpoolWriter, Spooled};

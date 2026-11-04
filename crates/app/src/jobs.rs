@@ -25,9 +25,7 @@ pub struct Indexer {
     limits: Limits,
     /// Tag rules applied once a message is indexed.
     rules: Arc<Vec<(Query, Vec<String>)>>,
-    /// Queue a webhook job (after this delay) for every indexed message.
-    webhook: Option<Duration>,
-    /// Relay and forward jobs for every indexed message.
+    /// Webhook, relay and forward jobs for every newly indexed message.
     automatic: Automatic,
 }
 
@@ -39,26 +37,14 @@ impl Indexer {
             workers: workers.max(1),
             limits: Limits::default(),
             rules: Arc::default(),
-            webhook: None,
             automatic: Automatic::default(),
         }
     }
 
-    /// Queue a `webhook` job for every message once it is indexed.
-    pub fn with_webhook(mut self, delay: Option<Duration>) -> Self {
-        self.webhook = delay;
-        self
-    }
-
-    /// Queue relay and forward jobs for messages once they are indexed.
+    /// Queue webhook, relay and forward jobs for messages once they are indexed.
     pub(crate) fn with_automatic(mut self, automatic: Automatic) -> Self {
         self.automatic = automatic;
         self
-    }
-
-    #[cfg(test)]
-    pub(crate) fn automatic(&self) -> &Automatic {
-        &self.automatic
     }
 
     /// Messages matching a rule's query get its tags after indexing.
@@ -113,64 +99,48 @@ impl Indexer {
             let store = self.store.clone();
             let limits = self.limits;
             let rules = self.rules.clone();
-            let webhook = self.webhook;
             let automatic = self.automatic.clone();
-            set.spawn_blocking(move || {
-                if !index_one(&store, &job, &limits, &rules) {
-                    return;
-                }
-                let seq = seq_of(&job);
-                if let Some(delay) = webhook
-                    && let Err(e) = store.enqueue("webhook", Some(seq), "{}", delay)
-                {
-                    tracing::error!("cannot queue webhook: {e}");
-                }
-                if let Err(e) = automatic.queue(&store, seq) {
-                    tracing::error!("cannot queue relay or forward: {e}");
-                }
-            });
+            set.spawn_blocking(move || index_one(&store, &job, &limits, &rules, &automatic));
         }
         while set.join_next().await.is_some() {}
         n
     }
 }
 
-fn seq_of(job: &Job) -> i64 {
-    job.message_seq.unwrap_or_default()
-}
-
-/// Returns whether the message is now indexed (or recorded as unparseable).
-fn index_one(store: &Store, job: &Job, limits: &Limits, rules: &[(Query, Vec<String>)]) -> bool {
+fn index_one(
+    store: &Store,
+    job: &Job,
+    limits: &Limits,
+    rules: &[(Query, Vec<String>)],
+    automatic: &Automatic,
+) {
     let Some(seq) = job.message_seq else {
         tracing::warn!(job = job.id, "index job without message");
-        return false;
+        return;
     };
     let raw = match store.raw_for_job(seq) {
         Ok(raw) => raw,
-        Err(spoolbox_store::StoreError::NotFound) => return false,
-        Err(e) => {
-            retry_or_fail(store, job, seq, &e.to_string());
-            return false;
-        }
+        Err(spoolbox_store::StoreError::NotFound) => return,
+        Err(e) => return retry_or_fail(store, job, seq, &e.to_string()),
+    };
+    let follow_ups = match automatic.plan(store, seq) {
+        Ok(jobs) => jobs,
+        Err(e) => return retry_or_fail(store, job, seq, &e.to_string()),
     };
     // A parser bug must not take the worker down; the message stays readable as raw source.
     let parsed = std::panic::catch_unwind(|| spoolbox_mime::index(&raw, limits));
     let result = match parsed {
         Ok(Ok(ix)) => store
-            .complete_index(job, seq, &ix)
+            .complete_index(job, seq, &ix, &follow_ups)
             .map(|()| apply_rules(store, seq, rules)),
-        Ok(Err(e)) => store.fail_index(job, seq, &e.to_string()),
+        Ok(Err(e)) => store.fail_index(job, seq, &e.to_string(), &follow_ups),
         Err(_) => {
             tracing::error!(seq, "MIME parser panicked; message marked as unparseable");
-            store.fail_index(job, seq, "internal parser error")
+            store.fail_index(job, seq, "internal parser error", &follow_ups)
         }
     };
-    match result {
-        Ok(()) => true,
-        Err(e) => {
-            retry_or_fail(store, job, seq, &e.to_string());
-            false
-        }
+    if let Err(e) = result {
+        retry_or_fail(store, job, seq, &e.to_string());
     }
 }
 
@@ -198,6 +168,7 @@ fn retry_or_fail(store: &Store, job: &Job, seq: i64, error: &str) {
             job,
             seq,
             &format!("indexing failed after {} attempts: {error}", job.attempts),
+            &[],
         );
     } else {
         let backoff = Duration::from_secs(1 << job.attempts.clamp(0, 6));

@@ -46,7 +46,7 @@ fn put(s: &Store, raw: &str, rcpts: &[&str], tags: &[&str]) -> String {
     {
         let seq = job.message_seq.expect("seq");
         let ix = index(&s.raw_for_job(seq).expect("raw"), &Limits::default()).expect("index");
-        s.complete_index(&job, seq, &ix).expect("complete");
+        s.complete_index(&job, seq, &ix, &[]).expect("complete");
     }
     id
 }

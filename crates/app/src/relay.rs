@@ -19,7 +19,7 @@ use spoolbox_config::{
     ForwardSettings, RelaySettings, Settings, SmtpMechanism, SmtpSecurity, SmtpTarget,
     is_plain_address,
 };
-use spoolbox_store::{Job, Store};
+use spoolbox_store::{Job, NewJob, Store, StoreError};
 use tokio::sync::watch;
 
 const RELAY_JOB: &str = "relay";
@@ -104,12 +104,7 @@ impl Relay {
     }
 
     /// Queues a checked release.
-    pub fn release(
-        &self,
-        store: &Store,
-        seq: i64,
-        to: Vec<String>,
-    ) -> Result<(), spoolbox_store::StoreError> {
+    pub fn release(&self, store: &Store, seq: i64, to: Vec<String>) -> Result<(), StoreError> {
         enqueue_relay(store, seq, to)
     }
 
@@ -127,48 +122,70 @@ impl Relay {
     }
 }
 
-fn enqueue_relay(
-    store: &Store,
-    seq: i64,
-    to: Vec<String>,
-) -> Result<(), spoolbox_store::StoreError> {
-    let payload = serde_json::to_string(&Payload { to }).unwrap_or_default();
+fn relay_payload(to: Vec<String>) -> String {
+    serde_json::to_string(&Payload { to }).unwrap_or_default()
+}
+
+fn enqueue_relay(store: &Store, seq: i64, to: Vec<String>) -> Result<(), StoreError> {
     store
-        .enqueue(RELAY_JOB, Some(seq), &payload, Duration::ZERO)
+        .enqueue(RELAY_JOB, Some(seq), &relay_payload(to), Duration::ZERO)
         .map(|_| ())
 }
 
-/// What to send on once a message is indexed.
+/// What to send on once a message is indexed for the first time.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Automatic {
+    /// Notify the webhook after this delay.
+    pub webhook: Option<Duration>,
     pub relay: Option<Arc<Relay>>,
     pub forward: bool,
 }
 
 impl Automatic {
-    /// Imported mail is old and was never addressed to this server, so it is not sent on.
-    pub(crate) fn queue(&self, store: &Store, seq: i64) -> Result<(), spoolbox_store::StoreError> {
-        if self.relay.is_none() && !self.forward {
-            return Ok(());
+    /// The jobs a message causes. Indexing it again (`reindex`, or the rest of an interrupted
+    /// reindex at the next start) causes none, and imported mail is old and was never addressed
+    /// to this server, so it is not sent on.
+    pub(crate) fn plan(&self, store: &Store, seq: i64) -> Result<Vec<NewJob>, StoreError> {
+        let mut jobs = Vec::new();
+        if self.webhook.is_none() && self.relay.is_none() && !self.forward {
+            return Ok(jobs);
         }
         let Some(message) = store.by_seq(seq)? else {
-            return Ok(());
+            return Ok(jobs);
         };
+        if message.status != "received" {
+            return Ok(jobs);
+        }
+        if let Some(delay) = self.webhook {
+            jobs.push(NewJob {
+                kind: "webhook",
+                payload: "{}".into(),
+                delay,
+            });
+        }
         if message.source == "import" {
-            return Ok(());
+            return Ok(jobs);
         }
         if let Some(relay) = &self.relay
             && let Some(envelope) = store.envelope(&message.id)?
         {
             let to = relay.automatic(&envelope.rcpt_to);
             if !to.is_empty() {
-                enqueue_relay(store, seq, to)?;
+                jobs.push(NewJob {
+                    kind: RELAY_JOB,
+                    payload: relay_payload(to),
+                    delay: Duration::ZERO,
+                });
             }
         }
         if self.forward {
-            store.enqueue(FORWARD_JOB, Some(seq), "{}", Duration::ZERO)?;
+            jobs.push(NewJob {
+                kind: FORWARD_JOB,
+                payload: "{}".into(),
+                delay: Duration::ZERO,
+            });
         }
-        Ok(())
+        Ok(jobs)
     }
 }
 
@@ -406,7 +423,7 @@ impl Worker {
             };
             let raw = store.raw(&message.id)?;
             let envelope = store.envelope(&message.id)?;
-            Ok::<_, spoolbox_store::StoreError>(Some((message.id, raw, envelope)))
+            Ok::<_, StoreError>(Some((message.id, raw, envelope)))
         })
         .await
         .map_err(|e| Failure::transient(e.to_string()))?
@@ -754,16 +771,17 @@ mod tests {
         );
     }
 
-    #[test]
-    fn automatic_relaying_is_opt_in_and_filtered() {
+    async fn index_all(core: &Core) {
+        while core.indexer.run_batch().await > 0 {}
+    }
+
+    #[tokio::test]
+    async fn automatic_relaying_is_opt_in_and_filtered() {
         // A configured relay alone only enables releases.
         let s = settings(relay_settings(1));
         let core = Core::open(&s).expect("core");
-        let seq = store_message(&core, "smtp", &["a@example.com"]);
-        core.indexer
-            .automatic()
-            .queue(&core.store, seq)
-            .expect("queue");
+        let _ = store_message(&core, "smtp", &["a@example.com"]);
+        index_all(&core).await;
         assert!(jobs(&core, RELAY_JOB).is_empty());
 
         let s = settings(RelaySettings {
@@ -773,15 +791,12 @@ mod tests {
             ..relay_settings(1)
         });
         let core = Core::open(&s).expect("core");
-        let seq = store_message(
+        let _ = store_message(
             &core,
             "smtp",
             &["a@example.com", "blocked@example.com", "x@attacker.test"],
         );
-        core.indexer
-            .automatic()
-            .queue(&core.store, seq)
-            .expect("queue");
+        index_all(&core).await;
         let queued = jobs(&core, RELAY_JOB);
         assert_eq!(queued.len(), 1);
         let payload: Payload = serde_json::from_str(&queued[0].payload).expect("payload");
@@ -792,24 +807,44 @@ mod tests {
             ..relay_settings(1)
         });
         let core = Core::open(&s).expect("core");
-        let seq = store_message(&core, "smtp", &["keep@a.test", "drop@a.test"]);
-        core.indexer
-            .automatic()
-            .queue(&core.store, seq)
-            .expect("queue");
+        let _ = store_message(&core, "smtp", &["keep@a.test", "drop@a.test"]);
+        index_all(&core).await;
         let payload: Payload =
             serde_json::from_str(&jobs(&core, RELAY_JOB)[0].payload).expect("payload");
         assert_eq!(payload.to, ["keep@a.test"]);
-        let seq = store_message(&core, "smtp", &["drop@a.test"]);
-        core.indexer
-            .automatic()
-            .queue(&core.store, seq)
-            .expect("queue");
+        let _ = store_message(&core, "smtp", &["drop@a.test"]);
+        index_all(&core).await;
         assert!(jobs(&core, RELAY_JOB).is_empty(), "nobody matches");
     }
 
-    #[test]
-    fn imported_mail_is_never_sent_on() {
+    #[tokio::test]
+    async fn indexing_again_sends_nothing() {
+        let mut s = settings(RelaySettings {
+            all: true,
+            allowed_recipients: Some(".".into()),
+            ..relay_settings(1)
+        });
+        s.forward = ForwardSettings {
+            target: Some(target(1)),
+            to: vec!["team@example.com".into()],
+        };
+        s.webhook.url = Some("http://127.0.0.1:1/hook".into());
+        let core = Core::open(&s).expect("core");
+        let _ = store_message(&core, "smtp", &["a@example.com"]);
+        index_all(&core).await;
+        assert_eq!(jobs(&core, RELAY_JOB).len(), 1);
+        assert_eq!(jobs(&core, FORWARD_JOB).len(), 1);
+        assert_eq!(jobs(&core, "webhook").len(), 1);
+
+        core.store.requeue_index_all().expect("reindex");
+        index_all(&core).await;
+        assert!(jobs(&core, RELAY_JOB).is_empty());
+        assert!(jobs(&core, FORWARD_JOB).is_empty());
+        assert!(jobs(&core, "webhook").is_empty());
+    }
+
+    #[tokio::test]
+    async fn imported_mail_is_never_sent_on() {
         let mut s = settings(RelaySettings {
             all: true,
             allowed_recipients: Some(".".into()),
@@ -820,11 +855,8 @@ mod tests {
             to: vec!["team@example.com".into()],
         };
         let core = Core::open(&s).expect("core");
-        let seq = store_message(&core, "import", &["a@example.com"]);
-        core.indexer
-            .automatic()
-            .queue(&core.store, seq)
-            .expect("queue");
+        let _ = store_message(&core, "import", &["a@example.com"]);
+        index_all(&core).await;
         assert!(jobs(&core, RELAY_JOB).is_empty());
         assert!(jobs(&core, FORWARD_JOB).is_empty());
     }
@@ -841,11 +873,8 @@ mod tests {
             to: vec!["team@example.com".into()],
         };
         let core = Core::open(&s).expect("core");
-        let seq = store_message(&core, "smtp", &["someone@else.test"]);
-        core.indexer
-            .automatic()
-            .queue(&core.store, seq)
-            .expect("queue");
+        let _ = store_message(&core, "smtp", &["someone@else.test"]);
+        index_all(&core).await;
         assert!(only_worker(&s, &core).run_once().await);
 
         let seen = seen.lock().expect("lock");

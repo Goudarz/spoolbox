@@ -152,8 +152,8 @@ impl Core {
         let relay = relay::Relay::new(&s.relay);
         let indexer = Indexer::new(store.clone(), wake, workers)
             .with_tag_rules(&s.tags.rules)
-            .with_webhook(s.webhook.url.as_ref().map(|_| s.webhook.delay))
             .with_automatic(relay::Automatic {
+                webhook: s.webhook.url.as_ref().map(|_| s.webhook.delay),
                 relay: relay.clone(),
                 forward: s.forward.target.is_some(),
             });

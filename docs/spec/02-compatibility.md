@@ -28,7 +28,8 @@
 | 14 | GET | `.../part/{part}/thumb` | JPEG 180×120 (سفید برای غیرتصویر) |
 | 15 | GET | `/api/v1/message/{id}/raw` | بایت‌به‌بایت همان پیام دریافتی؛ `dl=1` |
 | 16 | POST | `/api/v1/message/{id}/release` | بدون relay: 400 «message relay is not configured»؛ با relay: بررسی گیرنده‌ها، صف‌کردن و پاسخ `ok`؛ ارسال در پس‌زمینه و با retry (تفاوت عمدی: خطای SMTP در پاسخ برنمی‌گردد)؛ فقط `application/json` |
-| 17–18 | GET | `html-check`، `link-check` | `501` تا پس از MVP |
+| 17 | GET | `html-check` | `501` تا P7 |
+| 18 | GET | `link-check` | وضعیت لینک‌ها (`follow=true` تا ۳ redirect)؛ آدرس داخلی و پورت غیر 80/443 رد می‌شود مگر با `--allow-internal-http-requests`؛ با `--disable-link-check` مقدار `501` |
 | 20 | GET | `/api/v1/info` | `LatestVersion: "disabled"` (بدون تماس با اینترنت)؛ `Memory` فقط Linux |
 | 21 | GET | `/api/v1/webui` | پیکربندی UI |
 | 22 | GET/PUT | `/api/v1/chaos` | 400 «Chaos is not enabled» مگر `--enable-chaos` |
